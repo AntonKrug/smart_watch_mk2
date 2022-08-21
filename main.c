@@ -1,0 +1,399 @@
+/*******************************************************
+Requires CodeVisionAVR C Compiler
+
+Chip type               : ATmega88PA
+AVR Core Clock frequency: 8 MHz
+
+Memory model            : Small
+Data Stack size         : 128 bytes
+*******************************************************/
+
+#include <mega88a.h>    // AVR Mega88 PA
+#include <delay.h>      // Delay for-loop functions
+#include <twi.h>        // TWI functions (I2C)
+#include <ds3231_twi.h> // DS3231 Real Time Clock functions for TWI(I2C)
+#include <sleep.h>      // Power managment
+#include <spi.h>        // SPI functions to talk with MAX6920SAWP -> VFD
+
+// Character selectors
+#define VFD_CH_1 6     // Hours major
+#define VFD_CH_2 5     // Hours minor
+#define VFD_CH_3 3     // The : character between the hours and minutes -> HH:MM
+#define VFD_CH_4 1     // Minutes major
+#define VFD_CH_5 11    // Minutes minor
+
+// Individual segments of a 7-segment character 
+// https://en.wikipedia.org/wiki/Seven-segment_display
+#define VFD_A 10
+#define VFD_B 0
+#define VFD_C 4
+#define VFD_D 2
+#define VFD_E 8
+#define VFD_F 9
+#define VFD_G 7
+
+#define SLEEP_TIMEOUT 28 // 28 * 0.5s = 14s
+
+volatile unsigned char displayDots   = 0;             // Twice a second flip between displaying the dots displaying nothing
+volatile unsigned char stayAwake     = SLEEP_TIMEOUT; // How long before going to sleep
+volatile unsigned char buttonPressed = 0;             // Counter how long the WAKE-UP button is pressed (2Hz counter)
+
+
+// Timer1 overflow interrupt service routine (500ms period)
+interrupt [TIM1_OVF] void timer1_ovf_isr(void) {
+  // Reinitialize Timer1 value to keep triggering at the 2Hz rate
+  TCNT1H=0xBDC >> 8;
+  TCNT1L=0xBDC & 0xff; 
+                                                  
+  // Blink the ':' dots at 2Hz frequency
+  displayDots = !displayDots;                     
+
+  // Count how long before going to sleep
+  if (stayAwake > 0) {
+    stayAwake--; 
+  }
+                
+  // Count how long the WAKE-UP button is pressed
+  if (PIND & (1<<PORTD2)) {
+    buttonPressed = 0;
+  } else {                                    
+    if (buttonPressed < 250) {
+      // At certain point we do not need to count any further, just do not overflow
+      buttonPressed++;
+    } 
+  }
+}
+
+
+// Pin change 16-23 interrupt service routine
+// filtered to PCINT18/PD2 pin -> level changed on WAKE-UP button
+interrupt [PC_INT2] void pin_change_isr2(void) {
+  buttonPressed = 0;  // Button state changed, start counting from scratch    
+  stayAwake = SLEEP_TIMEOUT; // Pressing or lifting the button will keep us awake
+}
+
+
+// Turn off VFDs high-voltage DC2DC boost converter
+void dc2dcOff(void) {
+  PORTD = PORTD & (~(1 << PORTD1));
+}
+
+
+// Turn on VFDs high-voltage DC2DC boost converter 
+void dc2dcOn(void) {
+  PORTD = PORTD | (1 << PORTD1);
+}
+
+
+// Turn off VFDs low-voltage filament heater 
+void fHeatOff(void) {
+  PORTB = PORTB & (~(1 << PORTB1));
+}
+
+
+// Turn on VFDs low-voltage filament heater 
+void fHeatOn(void) {
+  PORTB = PORTB | (1 << PORTB1);
+}
+
+
+// Turn off both DC2DC and filament heater
+void vfdOff() {
+  dc2dcOff();
+  fHeatOff();
+}
+
+
+// Turn on both DC2DC and filament heater
+void vfdOn() {
+  dc2dcOn();
+  fHeatOn();  
+}
+
+
+// Set or clear PD7 -> MAX6920AWP.LOAD signal.
+// Allowing the serially  shifted data to be read into the driver stage
+void setVfdLoad(unsigned char value) {
+  PORTD = (PORTD & (~(1 << PORTD7))) | (value << PORTD7);
+}
+
+
+// Transfer data to VFD, at the time only 1 character will be displayed,
+// to display full clock this call needs to be called 4-5 times
+void sendDataToVfd(unsigned int data) {
+  // Transfer 16-bits to the MAX6920AWP, only lower 12-bits will be kept, 
+  // bit 12-15 will be truncated in the MAX6920AWP chip
+  spi(data >> 8);
+  spi(data & 0xff);
+
+  setVfdLoad(1);
+  delay_us(2);
+  
+  setVfdLoad(0);
+  delay_us(10);
+}
+
+
+// Set all the internal peripherals into a good known state:
+void systemPeripheralsSetup() {
+  // Crystal Oscillator division factor: 1
+  #pragma optsize-
+  CLKPR=(1<<CLKPCE);
+  CLKPR=(0<<CLKPCE) | (0<<CLKPS3) | (0<<CLKPS2) | (0<<CLKPS1) | (0<<CLKPS0);
+  #ifdef _OPTIMIZE_SIZE_
+  #pragma optsize+
+  #endif
+
+  // Input/Output Ports initialization
+  // Port B initialization
+  // Function: Bit7=In Bit6=In Bit5=Out Bit4=In Bit3=Out Bit2=Out Bit1=Out Bit0=In 
+  DDRB=(0<<DDB7) | (0<<DDB6) | (1<<DDB5) | (0<<DDB4) | (1<<DDB3) | (1<<DDB2) | (1<<DDB1) | (0<<DDB0);
+  // State: Bit7=T Bit6=T Bit5=T Bit4=T Bit3=T Bit2=T Bit1=T Bit0=T 
+  PORTB=(0<<PORTB7) | (0<<PORTB6) | (0<<PORTB5) | (0<<PORTB4) | (0<<PORTB3) | (0<<PORTB2) | (0<<PORTB1) | (0<<PORTB0);
+
+  // Port C initialization
+  // Function: Bit6=In Bit5=In Bit4=In Bit3=In Bit2=In Bit1=In Bit0=In 
+  DDRC=(0<<DDC6) | (0<<DDC5) | (0<<DDC4) | (0<<DDC3) | (0<<DDC2) | (0<<DDC1) | (0<<DDC0);
+  // State: Bit6=T Bit5=T Bit4=T Bit3=T Bit2=T Bit1=T Bit0=T 
+  PORTC=(0<<PORTC6) | (0<<PORTC5) | (0<<PORTC4) | (0<<PORTC3) | (0<<PORTC2) | (0<<PORTC1) | (0<<PORTC0);
+
+  // Port D initialization
+  // Function: Bit7=Out Bit6=In Bit5=In Bit4=In Bit3=In Bit2=In Bit1=Out Bit0=In 
+  DDRD=(1<<DDD7) | (0<<DDD6) | (0<<DDD5) | (0<<DDD4) | (0<<DDD3) | (0<<DDD2) | (1<<DDD1) | (0<<DDD0);
+  // State: Bit7=T Bit6=T Bit5=T Bit4=T Bit3=T Bit2=T Bit1=T Bit0=T 
+  PORTD=(0<<PORTD7) | (0<<PORTD6) | (0<<PORTD5) | (0<<PORTD4) | (0<<PORTD3) | (0<<PORTD2) | (0<<PORTD1) | (0<<PORTD0);
+
+  // Timer/Counter 0 initialization
+  // Clock source: System Clock
+  // Clock value: Timer 0 Stopped
+  // Mode: Normal top=0xFF
+  // OC0A output: Disconnected
+  // OC0B output: Disconnected
+  TCCR0A=(0<<COM0A1) | (0<<COM0A0) | (0<<COM0B1) | (0<<COM0B0) | (0<<WGM01) | (0<<WGM00);
+  TCCR0B=(0<<WGM02) | (0<<CS02) | (0<<CS01) | (0<<CS00);
+  TCNT0=0x00;
+  OCR0A=0x00;
+  OCR0B=0x00;
+
+  // Timer/Counter 1 initialization
+  // Clock source: System Clock
+  // Clock value: 125.000 kHz
+  // IRQ Timer Period: 0.5s  (2 Hz)
+  // Mode: Normal top=0xFFFF
+  // OC1A output: Disconnected
+  // OC1B output: Disconnected
+  // Noise Canceler: Off
+  // Input Capture on Falling Edge
+  // Timer1 Overflow Interrupt: On
+  // Input Capture Interrupt: Off
+  // Compare A Match Interrupt: Off
+  // Compare B Match Interrupt: Off
+  TCCR1A=(0<<COM1A1) | (0<<COM1A0) | (0<<COM1B1) | (0<<COM1B0) | (0<<WGM11) | (0<<WGM10);
+  TCCR1B=(0<<ICNC1) | (0<<ICES1) | (0<<WGM13) | (0<<WGM12) | (0<<CS12) | (1<<CS11) | (1<<CS10);
+  TCNT1H=0x0B;
+  TCNT1L=0xDC;
+  ICR1H=0x00;
+  ICR1L=0x00;
+  OCR1AH=0x00;
+  OCR1AL=0x00;
+  OCR1BH=0x00;
+  OCR1BL=0x00;
+
+  // Timer/Counter 2 initialization
+  // Clock source: System Clock
+  // Clock value: Timer2 Stopped
+  // Mode: Normal top=0xFF
+  // OC2A output: Disconnected
+  // OC2B output: Disconnected
+  ASSR=(0<<EXCLK) | (0<<AS2);
+  TCCR2A=(0<<COM2A1) | (0<<COM2A0) | (0<<COM2B1) | (0<<COM2B0) | (0<<WGM21) | (0<<WGM20);
+  TCCR2B=(0<<WGM22) | (0<<CS22) | (0<<CS21) | (0<<CS20);
+  TCNT2=0x00;
+  OCR2A=0x00;
+  OCR2B=0x00;
+
+  // Timer/Counter 0 Interrupt(s) initialization
+  TIMSK0=(0<<OCIE0B) | (0<<OCIE0A) | (0<<TOIE0);
+
+  // Timer/Counter 1 Interrupt(s) initialization
+  TIMSK1=(0<<ICIE1) | (0<<OCIE1B) | (0<<OCIE1A) | (1<<TOIE1);
+
+  // Timer/Counter 2 Interrupt(s) initialization
+  TIMSK2=(0<<OCIE2B) | (0<<OCIE2A) | (0<<TOIE2);
+
+  // External Interrupt(s) initialization
+  // INT0: Off
+  // INT1: Off
+  // Interrupt on any change on pins PCINT0-7: Off
+  // Interrupt on any change on pins PCINT8-14: Off
+  // Interrupt on any change on pins PCINT16-23: On the PCINT18/PD2 is the WAKE-UP button
+  EICRA=(0<<ISC11) | (0<<ISC10) | (0<<ISC01) | (0<<ISC00);
+  EIMSK=(0<<INT1) | (0<<INT0);
+  PCICR=(1<<PCIE2) | (0<<PCIE1) | (0<<PCIE0);
+  PCMSK2=(0<<PCINT23) | (0<<PCINT22) | (0<<PCINT21) | (0<<PCINT20) | (0<<PCINT19) | (1<<PCINT18) | (0<<PCINT17) | (0<<PCINT16);
+  PCIFR=(1<<PCIF2) | (0<<PCIF1) | (0<<PCIF0);
+
+  // USART initialization
+  // USART disabled
+  UCSR0B=(0<<RXCIE0) | (0<<TXCIE0) | (0<<UDRIE0) | (0<<RXEN0) | (0<<TXEN0) | (0<<UCSZ02) | (0<<RXB80) | (0<<TXB80);
+
+  // Analog Comparator initialization
+  // Analog Comparator: Off
+  // The Analog Comparator's positive input is
+  // connected to the AIN0 pin
+  // The Analog Comparator's negative input is
+  // connected to the AIN1 pin
+  ACSR=(1<<ACD) | (0<<ACBG) | (0<<ACO) | (0<<ACI) | (0<<ACIE) | (0<<ACIC) | (0<<ACIS1) | (0<<ACIS0);
+  ADCSRB=(0<<ACME);
+  // Digital input buffer on AIN0: On
+  // Digital input buffer on AIN1: On
+  DIDR1=(0<<AIN0D) | (0<<AIN1D);
+
+  // ADC initialization
+  // ADC disabled
+  ADCSRA=(0<<ADEN) | (0<<ADSC) | (0<<ADATE) | (0<<ADIF) | (0<<ADIE) | (0<<ADPS2) | (0<<ADPS1) | (0<<ADPS0);
+
+  // SPI initialization to interact with MAX6920AWP and drive the VFD
+  // Had to set the PB2,PB3 and PB5 as outputs (SS, CLK, MOSI) 
+  // SPI Type: Master
+  // SPI Clock Rate: 62.500 kHz (A /128 division, getting the slowest possible SCK clock)
+  // SPI Clock Phase: Cycle Start
+  // SPI Clock Polarity: Low
+  // SPI Data Order: MSB First
+  SPCR=(0<<SPIE) | (1<<SPE) | (0<<DORD) | (1<<MSTR) | (0<<CPOL) | (0<<CPHA) | (1<<SPR1) | (1<<SPR0);
+  SPSR=(0<<SPI2X);
+
+  // TWI initialization to interact with DS3231M RTC I2C peripheral
+  // Mode: TWI Master
+  // Bit Rate: 100 kHz
+  twi_master_init(100);
+  
+  #asm("sei")       // Globally enable interrupts
+  sleep_enable();   // Enable power managment features
+
+  // DS3231 Real Time Clock initialization for TWI
+  // ~INT/SQW pin function: Disabled
+  // 32 kHz pin output: Off
+  rtc_init(DS3231_INT_SQW_OFF,0);
+                   
+  // Power on the VFD but make sure it doesn't display anything yet
+  vfdOn();
+  sendDataToVfd(0);  
+}
+
+
+// Take `hour` and `minute` values and send the corresponding data
+// to VFD which will display it
+void displayTime(unsigned char hour, unsigned char minute) {
+
+  const unsigned int segments[] = {
+    1 << VFD_A | 1 << VFD_B | 1 << VFD_C | 1 << VFD_D | 1 << VFD_E | 1 << VFD_F,               // 0 character
+    1 << VFD_B | 1 << VFD_C,                                                                   // 1 character
+    1 << VFD_A | 1 << VFD_B | 1 << VFD_G | 1 << VFD_E | 1 << VFD_D,                            // 2 character
+    1 << VFD_A | 1 << VFD_B | 1 << VFD_G | 1 << VFD_C | 1 << VFD_D,                            // 3 character
+    1 << VFD_F | 1 << VFD_G | 1 << VFD_B | 1 << VFD_C,                                         // 4 character
+    1 << VFD_A | 1 << VFD_F | 1 << VFD_G | 1 << VFD_C | 1 << VFD_D,                            // 5 character
+    1 << VFD_F | 1 << VFD_G | 1 << VFD_C | 1 << VFD_D | 1 << VFD_E,                            // 6 character
+    1 << VFD_A | 1 << VFD_B | 1 << VFD_C,                                                      // 7 character
+    1 << VFD_A | 1 << VFD_B | 1 << VFD_C | 1 << VFD_D | 1 << VFD_E | 1 << VFD_F | 1 << VFD_G,  // 8 character
+    1 << VFD_A | 1 << VFD_F | 1 << VFD_B | 1 << VFD_G | 1 << VFD_C,                            // 9 character
+  };                                     
+  
+  // Hours                                        
+  unsigned char hourTens = hour / 10;
+  sendDataToVfd((0 == hourTens) ? 0 : segments[hourTens] | 1 << VFD_CH_1); // display blank if it's leading 0    
+  sendDataToVfd(segments[hour % 10]                      | 1 << VFD_CH_2);             
+                    
+  // The ':' dots
+  sendDataToVfd(0                                        | displayDots << VFD_CH_3);
+         
+  // Minutes
+  sendDataToVfd(segments[(minute / 10)%60]               | 1 << VFD_CH_4);    
+  sendDataToVfd(segments[minute % 10]                    | 1 << VFD_CH_5);    
+                      
+  // Make sure that characters are displayed for equal time and have equal brightness,  
+  // therefore leave the VFD in an off state                                                       
+  sendDataToVfd(0);   
+}
+
+
+// Something changed, counters need to start from scratch
+void actionHappenedResetCounters(void) {
+  buttonPressed = 0; 
+  stayAwake     = SLEEP_TIMEOUT;
+}
+
+
+void main(void) {
+  unsigned char hour   = 8;
+  unsigned char minute = 0;
+  unsigned char second = 0;
+  
+  unsigned char state  = 0;           // 0 normal operation, 1 set hours, 2 set minutes
+          
+  systemPeripheralsSetup();           // Set all peripherals into a good known state      
+  rtc_set_time(hour, minute, second); // Set RTC clock to known time
+
+  while (1) { // The super loop -> whole life of this watch                   
+                           
+    //  ------------- Setting the time state machine  -------------
+    switch (state) {
+    
+      case 1: // Set hours
+        displayDots = 0; // Do not display the ':' dots when setting the hours  
+        if (buttonPressed) {
+          hour = (hour + 1) % 24;
+          actionHappenedResetCounters(); 
+        }      
+      break;              
+      
+      case 2: // Set minutes
+        displayDots = 1; // Constantly display the ':' dots when setting the minutes
+        if (buttonPressed) {
+          minute = (minute + 1) % 60;
+          actionHappenedResetCounters(); 
+        }
+      break;
+      
+      default:
+        // state 0 -> normal clock operation
+        
+        if (buttonPressed > 5) {
+          // Go into the Set time state 
+          state = 1;
+          actionHappenedResetCounters(); 
+        }
+    }
+    
+    if ( (state > 0) && (stayAwake < (SLEEP_TIMEOUT-7)) ) { 
+      // If in setting mode then after a few seconds of inactivity go to the next state automatically
+      state++;
+      actionHappenedResetCounters();      
+    }
+    
+    if (state > 2) {
+      // Reached the end, done setting the time, save it to the RTC chip and go to normal operation 
+      rtc_set_time(hour, minute, 0);
+      state = 0;
+      actionHappenedResetCounters();       
+    }
+
+                               
+    // ------------- The VFD needs constant refresh ------------- 
+    displayTime(hour, minute);     
+
+    
+    //  ------------- Low power and wake-up logic -------------
+    if (0 == stayAwake) {           
+      // Reached sleep timeout, going to power down state
+      vfdOff();
+      powerdown(); // External IRQ caused by WAKE-UP button can resume the CPU
+                    
+      // After waking up, get the current time as a lot of time could have passed
+      rtc_get_time(&hour, &minute, &second);            
+      vfdOn();
+      delay_us(500); // Give time for DC2DC to stabilise before displaying the time
+    }
+    
+  }
+}
