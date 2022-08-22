@@ -14,13 +14,14 @@ Data Stack size         : 128 bytes
 #include <ds3231_twi.h> // DS3231 Real Time Clock functions for TWI(I2C)
 #include <sleep.h>      // Power managment
 #include <spi.h>        // SPI functions to talk with MAX6920SAWP -> VFD
+#include <stdint.h>     // `uint8_t` instead `unsigned char` and `uint16_t` instead `unsigned int` 
 
 // Character selectors
-#define VFD_CH_1 6     // Hours major
-#define VFD_CH_2 5     // Hours minor
-#define VFD_CH_3 3     // The : character between the hours and minutes -> HH:MM
-#define VFD_CH_4 1     // Minutes major
-#define VFD_CH_5 11    // Minutes minor
+#define VFD_CH_1 6      // Hours major
+#define VFD_CH_2 5      // Hours minor
+#define VFD_CH_3 3      // The : character between the hours and minutes -> HH:MM
+#define VFD_CH_4 1      // Minutes major
+#define VFD_CH_5 11     // Minutes minor
 
 // Individual segments of a 7-segment character 
 // https://en.wikipedia.org/wiki/Seven-segment_display
@@ -32,11 +33,12 @@ Data Stack size         : 128 bytes
 #define VFD_F 9
 #define VFD_G 7
 
+// How long the VFD stays lit after the WAKE UP button was pressed 
 #define SLEEP_TIMEOUT 28 // 28 * 0.5s = 14s
 
-volatile unsigned char displayDots   = 0;             // Twice a second flip between displaying the dots displaying nothing
-volatile unsigned char stayAwake     = SLEEP_TIMEOUT; // How long before going to sleep
-volatile unsigned char buttonPressed = 0;             // Counter how long the WAKE-UP button is pressed (2Hz counter)
+volatile uint8_t displayDots   = 0;             // Twice a second flip between displaying the dots and displaying nothing
+volatile uint8_t stayAwake     = SLEEP_TIMEOUT; // How long before going to sleep (2Hz counter counting to 0)
+volatile uint8_t buttonPressed = 0;             // Counter how long the WAKE-UP button is pressed (2Hz counter)
 
 
 // Timer1 overflow interrupt service routine (500ms period)
@@ -68,30 +70,36 @@ interrupt [TIM1_OVF] void timer1_ovf_isr(void) {
 // Pin change 16-23 interrupt service routine
 // filtered to PCINT18/PD2 pin -> level changed on WAKE-UP button
 interrupt [PC_INT2] void pin_change_isr2(void) {
-  buttonPressed = 0;  // Button state changed, start counting from scratch    
+  #asm("cli")                // Globally disable interrupts
+  DDRD |= (1<<DDD2);         // Start discharging leftover charge on the pin
+  buttonPressed = 0;         // Button state changed, start counting from scratch    
+  DDRD &= ~(1<<DDD2);        // Go back to a tri-state mode (which is externally pulled high)
   stayAwake = SLEEP_TIMEOUT; // Pressing or lifting the button will keep us awake
+  delay_us(10);              // Give it time to stabilize so it will not trigger IRQ later
+  PCIFR |= (1<<PCIF2);       // Clear pending IRQ caused by the pin discharge to 0 -> and pull up to 1
+  #asm("sei")                // Globally enable interrupts    
 }
 
 
-// Turn off VFD's high-voltage DC2DC boost converter
+// Turn off VFD's high-voltage DC2DC boost converter (PD1)
 void dc2dcOff(void) {
   PORTD = PORTD & (~(1 << PORTD1));
 }
 
 
-// Turn on VFD's high-voltage DC2DC boost converter 
+// Turn on VFD's high-voltage DC2DC boost converter (PD1) 
 void dc2dcOn(void) {
   PORTD = PORTD | (1 << PORTD1);
 }
 
 
-// Turn off VFD's low-voltage filament heater 
+// Turn off VFD's low-voltage filament heater (PB1) 
 void fHeatOff(void) {
   PORTB = PORTB & (~(1 << PORTB1));
 }
 
 
-// Turn on VFD's low-voltage filament heater 
+// Turn on VFD's low-voltage filament heater (PB1) 
 void fHeatOn(void) {
   PORTB = PORTB | (1 << PORTB1);
 }
@@ -111,21 +119,22 @@ void vfdOn() {
 }
 
 
-// Set or clear PD7 -> MAX6920AWP.LOAD signal.
+// Set high or low the PD7 pin -> MAX6920AWP.LOAD signal.
 // Allowing the serially  shifted data to be read into the driver stage
-void setVfdLoad(unsigned char value) {
+void setVfdLoad(uint8_t value) {
   PORTD = (PORTD & (~(1 << PORTD7))) | (value << PORTD7);
 }
 
 
 // Transfer data to VFD, at the time only 1 character will be displayed,
 // to display full clock this call needs to be called 4-5 times
-void sendDataToVfd(unsigned int data) {
+void sendDataToVfd(uint16_t data) {
   // Transfer 16-bits to the MAX6920AWP, only lower 12-bits will be kept, 
   // bit 12-15 will be truncated in the MAX6920AWP chip
   spi(data >> 8);
   spi(data & 0xff);
-
+               
+  // Start displaying the data on VFD 
   setVfdLoad(1);
   delay_us(2);
   
@@ -143,7 +152,7 @@ void systemPeripheralsSetup() {
   #ifdef _OPTIMIZE_SIZE_
   #pragma optsize+
   #endif
-
+                   
   // Input/Output Ports initialization
   // Port B initialization
   // Function: Bit7=In Bit6=In Bit5=Out Bit4=In Bit3=Out Bit2=Out Bit1=Out Bit0=In 
@@ -155,8 +164,8 @@ void systemPeripheralsSetup() {
   // Function: Bit6=In Bit5=In Bit4=In Bit3=In Bit2=In Bit1=In Bit0=In 
   DDRC=(0<<DDC6) | (0<<DDC5) | (0<<DDC4) | (0<<DDC3) | (0<<DDC2) | (0<<DDC1) | (0<<DDC0);
   // State: Bit6=T Bit5=T Bit4=T Bit3=T Bit2=T Bit1=T Bit0=T 
-  PORTC=(0<<PORTC6) | (0<<PORTC5) | (0<<PORTC4) | (0<<PORTC3) | (0<<PORTC2) | (0<<PORTC1) | (0<<PORTC0);
-
+  PORTC=(0<<PORTC6) | (0<<PORTC5) | (0<<PORTC4) | (0<<PORTC3) | (0<<PORTC2) | (0<<PORTC1) | (0<<PORTC0);  
+  
   // Port D initialization
   // Function: Bit7=Out Bit6=In Bit5=In Bit4=In Bit3=In Bit2=In Bit1=Out Bit0=In 
   DDRD=(1<<DDD7) | (0<<DDD6) | (0<<DDD5) | (0<<DDD4) | (0<<DDD3) | (0<<DDD2) | (1<<DDD1) | (0<<DDD0);
@@ -284,9 +293,9 @@ void systemPeripheralsSetup() {
 
 // Take `hour` and `minute` values and send the corresponding data
 // to VFD which will display it
-void displayTime(unsigned char hour, unsigned char minute) {
+void displayTime(uint8_t hour, uint8_t minute) {
 
-  const unsigned int segments[] = {
+  const uint16_t segments[] = {
     1 << VFD_A | 1 << VFD_B | 1 << VFD_C | 1 << VFD_D | 1 << VFD_E | 1 << VFD_F,               // 0 character
     1 << VFD_B | 1 << VFD_C,                                                                   // 1 character
     1 << VFD_A | 1 << VFD_B | 1 << VFD_G | 1 << VFD_E | 1 << VFD_D,                            // 2 character
@@ -300,7 +309,7 @@ void displayTime(unsigned char hour, unsigned char minute) {
   };                                     
   
   // Hours                                        
-  unsigned char hourTens = hour / 10;
+  uint8_t hourTens = hour / 10;
   sendDataToVfd((0 == hourTens) ? 0 : segments[hourTens] | 1 << VFD_CH_1); // display blank if it's leading 0    
   sendDataToVfd(segments[hour % 10]                      | 1 << VFD_CH_2);             
                     
@@ -308,7 +317,7 @@ void displayTime(unsigned char hour, unsigned char minute) {
   sendDataToVfd(0                                        | displayDots << VFD_CH_3);
          
   // Minutes
-  sendDataToVfd(segments[(minute / 10)%60]               | 1 << VFD_CH_4);    
+  sendDataToVfd(segments[(minute / 10) % 60]             | 1 << VFD_CH_4);    
   sendDataToVfd(segments[minute % 10]                    | 1 << VFD_CH_5);    
                       
   // Make sure that characters are displayed for equal time and have equal brightness,  
@@ -324,12 +333,12 @@ void actionHappenedResetCounters(void) {
 }
 
 
-void setTimeStateMachine(unsigned char *hour, unsigned char *minute) {
+void setTimeStateMachine(uint8_t *hour, uint8_t *minute) {
   // state 0 normal operation - display clock
   // state 1 set hours
   // state 2 set minutes
   
-  static unsigned char state  = 0;           
+  static uint8_t state  = 0;           
 
   switch (state) {
     
@@ -374,8 +383,8 @@ void setTimeStateMachine(unsigned char *hour, unsigned char *minute) {
 }
 
 
-void lowPowerAndWakingUp(unsigned char *hour, unsigned char *minute) {
-  unsigned char second; // Seconds are not displayed and not used anywhere 
+void lowPowerAndWakingUp(uint8_t *hour, uint8_t *minute) {
+  uint8_t second; // Seconds are not displayed and not used anywhere 
   
   if (0 == stayAwake) {           
     // Reached sleep timeout, going to power down state
@@ -391,8 +400,8 @@ void lowPowerAndWakingUp(unsigned char *hour, unsigned char *minute) {
 
 
 void main(void) {
-  unsigned char hour   = 8;              // On power up start with 8:00 time
-  unsigned char minute = 0;
+  uint8_t hour   = 8;                    // On power up start with 8:00 time
+  uint8_t minute = 0;
             
   systemPeripheralsSetup();              // Set all peripherals into a known state      
   rtc_set_time(hour, minute, 0);         // Set RTC clock to known time
@@ -405,3 +414,4 @@ void main(void) {
   } 
   
 }
+
