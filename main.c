@@ -375,7 +375,7 @@ void setTimeStateMachine(unsigned char *hour, unsigned char *minute) {
 
 
 void lowPowerAndWakingUp(unsigned char *hour, unsigned char *minute) {
-  unsigned char second;
+  unsigned char second; // Seconds are not displayed and not used anywhere 
   
   if (0 == stayAwake) {           
     // Reached sleep timeout, going to power down state
