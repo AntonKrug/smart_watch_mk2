@@ -73,25 +73,25 @@ interrupt [PC_INT2] void pin_change_isr2(void) {
 }
 
 
-// Turn off VFDs high-voltage DC2DC boost converter
+// Turn off VFD's high-voltage DC2DC boost converter
 void dc2dcOff(void) {
   PORTD = PORTD & (~(1 << PORTD1));
 }
 
 
-// Turn on VFDs high-voltage DC2DC boost converter 
+// Turn on VFD's high-voltage DC2DC boost converter 
 void dc2dcOn(void) {
   PORTD = PORTD | (1 << PORTD1);
 }
 
 
-// Turn off VFDs low-voltage filament heater 
+// Turn off VFD's low-voltage filament heater 
 void fHeatOff(void) {
   PORTB = PORTB & (~(1 << PORTB1));
 }
 
 
-// Turn on VFDs low-voltage filament heater 
+// Turn on VFD's low-voltage filament heater 
 void fHeatOn(void) {
   PORTB = PORTB | (1 << PORTB1);
 }
@@ -324,76 +324,84 @@ void actionHappenedResetCounters(void) {
 }
 
 
-void main(void) {
-  unsigned char hour   = 8;
-  unsigned char minute = 0;
-  unsigned char second = 0;
+void setTimeStateMachine(unsigned char *hour, unsigned char *minute) {
+  // state 0 normal operation - display clock
+  // state 1 set hours
+  // state 2 set minutes
   
-  unsigned char state  = 0;           // 0 normal operation, 1 set hours, 2 set minutes
-          
-  systemPeripheralsSetup();           // Set all peripherals into a good known state      
-  rtc_set_time(hour, minute, second); // Set RTC clock to known time
+  static unsigned char state  = 0;           
 
-  while (1) { // The super loop -> whole life of this watch                   
-                           
-    //  ------------- Setting the time state machine  -------------
-    switch (state) {
+  switch (state) {
     
-      case 1: // Set hours
-        displayDots = 0; // Do not display the ':' dots when setting the hours  
-        if (buttonPressed) {
-          hour = (hour + 1) % 24;
-          actionHappenedResetCounters(); 
-        }      
-      break;              
+    case 1: // Set hours
+      displayDots = 0; // Do not display the ':' dots when setting the hours  
+      if (buttonPressed) {
+        *hour = (*hour + 1) % 24;
+        actionHappenedResetCounters(); 
+      }      
+    break;              
       
-      case 2: // Set minutes
-        displayDots = 1; // Constantly display the ':' dots when setting the minutes
-        if (buttonPressed) {
-          minute = (minute + 1) % 60;
-          actionHappenedResetCounters(); 
-        }
-      break;
+    case 2: // Set minutes
+      displayDots = 1; // Constantly display the ':' dots when setting the minutes
+      if (buttonPressed) {
+        *minute = (*minute + 1) % 60;
+        actionHappenedResetCounters(); 
+      }
+    break;
       
-      default:
-        // state 0 -> normal clock operation
+    default:
+      // state 0 -> normal clock operation
         
-        if (buttonPressed > 5) {
-          // Go into the Set time state 
-          state = 1;
-          actionHappenedResetCounters(); 
-        }
-    }
-    
-    if ( (state > 0) && (stayAwake < (SLEEP_TIMEOUT-7)) ) { 
-      // If in setting mode then after a few seconds of inactivity go to the next state automatically
-      state++;
-      actionHappenedResetCounters();      
-    }
-    
-    if (state > 2) {
-      // Reached the end, done setting the time, save it to the RTC chip and go to normal operation 
-      rtc_set_time(hour, minute, 0);
-      state = 0;
-      actionHappenedResetCounters();       
-    }
-
-                               
-    // ------------- The VFD needs constant refresh ------------- 
-    displayTime(hour, minute);     
-
-    
-    //  ------------- Low power and wake-up logic -------------
-    if (0 == stayAwake) {           
-      // Reached sleep timeout, going to power down state
-      vfdOff();
-      powerdown(); // External IRQ caused by WAKE-UP button can resume the CPU
-                    
-      // After waking up, get the current time as a lot of time could have passed
-      rtc_get_time(&hour, &minute, &second);            
-      vfdOn();
-      delay_us(500); // Give time for DC2DC to stabilise before displaying the time
-    }
-    
+      if (buttonPressed > 5) {
+        // Go into the Set time state 
+        state = 1;
+        actionHappenedResetCounters(); 
+      }
   }
+    
+  if ( (state > 0) && (stayAwake < (SLEEP_TIMEOUT-7)) ) { 
+    // If in setting mode then after a few seconds of inactivity go to the next state automatically
+    state++;
+    actionHappenedResetCounters();      
+  }
+    
+  if (state > 2) {
+    // Reached the end, done setting the time, save it to the RTC chip and go to normal operation 
+    rtc_set_time(*hour, *minute, 0);
+    state = 0;
+    actionHappenedResetCounters();       
+  }
+}
+
+
+void lowPowerAndWakingUp(unsigned char *hour, unsigned char *minute) {
+  unsigned char second;
+  
+  if (0 == stayAwake) {           
+    // Reached sleep timeout, going to power down state
+    vfdOff();
+    powerdown(); // External IRQ caused by WAKE-UP button can resume the CPU
+                    
+    // After waking up, get the current time as a lot of time could have passed
+    rtc_get_time(hour, minute, &second);            
+    vfdOn();
+    delay_us(500); // Give time for DC2DC to stabilise before displaying the time
+  }
+}
+
+
+void main(void) {
+  unsigned char hour   = 8;              // On power up start with 8:00 time
+  unsigned char minute = 0;
+            
+  systemPeripheralsSetup();              // Set all peripherals into a known state      
+  rtc_set_time(hour, minute, 0);         // Set RTC clock to known time
+
+  while (1) {                            // The super loop -> whole life of this watch                   
+                           
+    setTimeStateMachine(&hour, &minute); // Handles 'Set Time' functionality                               
+    displayTime(hour, minute);           // The VFD needs constant refresh        
+    lowPowerAndWakingUp(&hour, &minute); // Goes into low-power mode after a timeout 
+  } 
+  
 }
