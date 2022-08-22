@@ -1,4 +1,4 @@
-# Smart watch
+# Smart wrist watch
 
 ![Display on](https://raw.githubusercontent.com/AntonKrug/smart_watch_mk2/assets/images/photo00.jpg)
 
@@ -33,6 +33,8 @@ The `MAX6920AWP` officially is not an SPI device but has DataIn `DIN` and DataCl
 
 # TODO
 
+- Add protection to sensitive corners of the glass VFD
+- Add a strap so it can be used as a wrist watch
 - Switch from CodeVisionAVR C compiler to GCC compiler
 - Replace the bundled AVR C HAL with C++ implementation
 - Take advantage of `WS2812B` neopixel and provide under-glow
