@@ -5,7 +5,7 @@
 
 The name is ironic as the watch can only display time and nothing else, not even an alarm feature.
 
-The idea was to take a modern CPU and combine it with obsolete display technology, in this case [Vacuum fluorescent display (VFD)](https://en.wikipedia.org/wiki/Vacuum_fluorescent_display). The display has a very nice glow, which is for me impossible to capture with a camera, but in person the neon-like glowing digits really stand out (similar to nixie tubes).
+The idea was to take a modern CPU and combine it with obsolete display technology, in this case [Vacuum fluorescent display (VFD)](https://en.wikipedia.org/wiki/Vacuum_fluorescent_display). The `IVL2-7_5` display has a very nice glow, which is for me impossible to capture with a camera, but in person the neon-like glowing digits really stand out (similar to nixie tubes).
 
 
 ![Display off](https://raw.githubusercontent.com/AntonKrug/smart_watch_mk2/assets/images/photo01.jpg)
@@ -19,7 +19,7 @@ It requires CodeVisionAVR C compiler for compilation (this will be fixed in the 
 
 # Schematic
 
-The MCU can turn on/off the DC2DC section which produces the higher voltage needed for the VFD to operate,
+The MCU can turn on/off the DC2DC section which produces the higher voltage needed for the VFD `IVL2-7_5` to operate,
 this significantly decreases power consumption, because even at idle the DC2DC consumes significant current (from a battery-powered perspective). The filament heating can be turned off separately as well.
 
 The RTC `DS3231M` chip connected through I2C keeps track of the current time when the MCU is in sleep mode.
