@@ -13,7 +13,7 @@ The idea was to take a modern CPU and combine it with obsolete display technolog
 
 # Code
 
-Because the watch doesn't do anything else, the code is fairly trivial and currently just keeping it in a single file.
+Because the watch doesn't do anything else, the code is fairly trivial and currently just keeping it in [a single file](https://github.com/AntonKrug/smart_watch_mk2/blob/main/main.c).
 
 It requires CodeVisionAVR C compiler for compilation (this will be fixed in the future when it will be converted to a GCC project).
 
