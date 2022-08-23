@@ -39,6 +39,7 @@ Data Stack size         : 128 bytes
 volatile uint8_t displayDots   = 0;             // Twice a second flip between displaying the dots and displaying nothing
 volatile uint8_t stayAwake     = SLEEP_TIMEOUT; // How long before going to sleep (2Hz counter counting to 0)
 volatile uint8_t buttonPressed = 0;             // Counter how long the WAKE-UP button is pressed (2Hz counter)
+volatile uint8_t timeStale     = 0;             // Flag to force 1Hz update from RTC to get correct time
 
 
 // Timer1 overflow interrupt service routine (500ms period)
@@ -48,7 +49,10 @@ interrupt [TIM1_OVF] void timer1_ovf_isr(void) {
   TCNT1L=0xBDC & 0xff; 
                                                   
   // Blink the ':' dots at 2Hz frequency
-  displayDots = !displayDots;                     
+  displayDots = !displayDots;   
+                                 
+  // 1Hz flag to force the RTC update
+  if (displayDots) timeStale = 1;                  
 
   // Count how long before going to sleep
   if (stayAwake > 0) {
@@ -364,7 +368,15 @@ void setTimeStateMachine(uint8_t *hour, uint8_t *minute) {
         // Go into the Set time state 
         state = 1;
         actionHappenedResetCounters(); 
+      } else {
+        if (timeStale) { 
+          // Do 1Hz RTC update of the exact time
+          uint8_t second; // Seconds are not displayed and not used anywhere 
+          rtc_get_time(hour, minute, &second);   
+          timeStale = 0;             
+        }
       }
+    break; // Not really needed here, but just for consistency sake
   }
     
   if ( (state > 0) && (stayAwake < (SLEEP_TIMEOUT-7)) ) { 
