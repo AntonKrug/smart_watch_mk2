@@ -70,14 +70,13 @@ interrupt [TIM1_OVF] void timer1_ovf_isr(void) {
 // Pin change 16-23 interrupt service routine
 // filtered to PCINT18/PD2 pin -> level changed on WAKE-UP button
 interrupt [PC_INT2] void pin_change_isr2(void) {
-  #asm("cli")                // Globally disable interrupts
-  DDRD |= (1<<DDD2);         // Start discharging leftover charge on the pin
-  buttonPressed = 0;         // Button state changed, start counting from scratch    
-  DDRD &= ~(1<<DDD2);        // Go back to a tri-state mode (which is externally pulled high)
-  stayAwake = SLEEP_TIMEOUT; // Pressing or lifting the button will keep us awake
-  delay_us(10);              // Give it time to stabilize so it will not trigger IRQ later
-  PCIFR |= (1<<PCIF2);       // Clear pending IRQ caused by the pin discharge to 0 -> and pull up to 1
-  #asm("sei")                // Globally enable interrupts    
+  #asm("cli")                     // Globally disable interrupts
+  PORTD         |= (1<<PORTD2);   // Go into internal pull up mode(~30k) to charge the pin up
+  buttonPressed  = 0;             // Button state changed, start counting from scratch
+  PORTD         &= ~(1<<PORTD2);  // Go back to a tri-state mode which is externally pulled up (~1M) 
+  stayAwake      = SLEEP_TIMEOUT; // Pressing or lifting the button will keep us awake
+  PCIFR         |= (1<<PCIF2);    // Clear pending IRQ caused by the pin discharge to 0 -> and pull up to 1
+  #asm("sei")                     // Globally enable interrupts    
 }
 
 
