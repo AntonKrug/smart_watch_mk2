@@ -34,7 +34,8 @@ Data Stack size         : 128 bytes
 #define VFD_G 7
 
 // How long the VFD stays lit after the WAKE UP button was pressed 
-#define SLEEP_TIMEOUT 28 // 28 * 0.5s = 14s
+#define SLEEP_TIMEOUT 22    // 22 * 0.5s = 11s timeout before turning off the VFD
+#define PRESS_TO_SET_TIME 4 // 4 * 0.5s  = 2.0s presses
 
 volatile uint8_t displayDots   = 0;             // Twice a second flip between displaying the dots and displaying nothing
 volatile uint8_t stayAwake     = SLEEP_TIMEOUT; // How long before going to sleep (2Hz counter counting to 0)
@@ -375,11 +376,11 @@ void setTimeStateMachine(uint8_t *hour, uint8_t *minute) {
           rtc_get_time(hour, minute, &second);   
           timeStale = 0;             
         }
-      }
-    break; // Not really needed here, but just for consistency sake
+      }    
+    break; // Not really needed here, but just for consistency sake      
   }
     
-  if ( (state > 0) && (stayAwake < (SLEEP_TIMEOUT-7)) ) { 
+  if ( (state > 0) && (stayAwake < (SLEEP_TIMEOUT - PRESS_TO_SET_TIME)) ) { 
     // If in setting mode then after a few seconds of inactivity go to the next state automatically
     state++;
     actionHappenedResetCounters();      
