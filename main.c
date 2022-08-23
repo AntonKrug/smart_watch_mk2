@@ -25,6 +25,16 @@ Data Stack size         : 128 bytes
 
 // Individual segments of a 7-segment character 
 // https://en.wikipedia.org/wiki/Seven-segment_display
+//  --A--
+// |     |
+// F     B
+// |     |
+//  --G--
+// |     |
+// E     C
+// |     |
+//  --D--
+
 #define VFD_A 10
 #define VFD_B 0
 #define VFD_C 4
