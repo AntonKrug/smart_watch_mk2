@@ -9,48 +9,15 @@ Data Stack size         : 128 bytes
 *******************************************************/
 
 #include <mega88a.h>    // AVR Mega88 PA
-#include <delay.h>      // Delay for-loop functions
 #include <twi.h>        // TWI functions (I2C)
 #include <ds3231_twi.h> // DS3231 Real Time Clock functions for TWI(I2C)
 #include <sleep.h>      // Power managment
-#include <spi.h>        // SPI functions to talk with MAX6920SAWP -> VFD
-#include <stdint.h>     // `uint8_t` instead `unsigned char` and `uint16_t` instead `unsigned int` 
+#include <stdint.h>     // `uint8_t` instead `unsigned char` and `uint16_t` instead `unsigned int`
 
-// Character selectors
-#define VFD_CH_1 6      // Hours major
-#define VFD_CH_2 5      // Hours minor
-#define VFD_CH_3 3      // The : character between the hours and minutes -> HH:MM
-#define VFD_CH_4 1      // Minutes major
-#define VFD_CH_5 11     // Minutes minor
+#include "vfd.h" 
 
-// Individual segments of a 7-segment character 
-// https://en.wikipedia.org/wiki/Seven-segment_display
-//  --A--
-// |     |
-// F     B
-// |     |
-//  --G--
-// |     |
-// E     C
-// |     |
-//  --D--
-
-#define VFD_A 10
-#define VFD_B 0
-#define VFD_C 4
-#define VFD_D 2
-#define VFD_E 8
-#define VFD_F 9
-#define VFD_G 7
-
-// How long the VFD stays lit after the WAKE UP button was pressed 
-#define SLEEP_TIMEOUT 22    // 22 * 0.5s = 11s timeout before turning off the VFD
-#define PRESS_TO_SET_TIME 4 // 4 * 0.5s  = 2.0s presses
-
-volatile uint8_t displayDots   = 0;             // Twice a second flip between displaying the dots and displaying nothing
-volatile uint8_t stayAwake     = SLEEP_TIMEOUT; // How long before going to sleep (2Hz counter counting to 0)
-volatile uint8_t buttonPressed = 0;             // Counter how long the WAKE-UP button is pressed (2Hz counter)
-volatile uint8_t timeStale     = 0;             // Flag to force 1Hz update from RTC to get correct time
+volatile uint8_t buttonPressed = 0; // Counter how long the WAKE-UP button is pressed (2Hz counter)
+volatile uint8_t timeStale     = 0; // Flag to force 1Hz update from RTC to get correct time
 
 
 // Timer1 overflow interrupt service routine (500ms period)
@@ -92,68 +59,6 @@ interrupt [PC_INT2] void pin_change_isr2(void) {
   stayAwake      = SLEEP_TIMEOUT; // Pressing or lifting the button will keep us awake
   PCIFR         |= (1<<PCIF2);    // Clear pending IRQ caused by the pin discharge to 0 -> and pull up to 1
   #asm("sei")                     // Globally enable interrupts    
-}
-
-
-// Turn off VFD's high-voltage DC2DC boost converter (PD1)
-void dc2dcOff(void) {
-  PORTD = PORTD & (~(1 << PORTD1));
-}
-
-
-// Turn on VFD's high-voltage DC2DC boost converter (PD1) 
-void dc2dcOn(void) {
-  PORTD = PORTD | (1 << PORTD1);
-}
-
-
-// Turn off VFD's low-voltage filament heater (PB1) 
-void fHeatOff(void) {
-  PORTB = PORTB & (~(1 << PORTB1));
-}
-
-
-// Turn on VFD's low-voltage filament heater (PB1) 
-void fHeatOn(void) {
-  PORTB = PORTB | (1 << PORTB1);
-}
-
-
-// Turn off both DC2DC and filament heater
-void vfdOff() {
-  dc2dcOff();
-  fHeatOff();
-}
-
-
-// Turn on both DC2DC and filament heater
-void vfdOn() {
-  dc2dcOn();
-  fHeatOn();  
-}
-
-
-// Set high or low the PD7 pin -> MAX6920AWP.LOAD signal.
-// Allowing the serially  shifted data to be read into the driver stage
-void setVfdLoad(uint8_t value) {
-  PORTD = (PORTD & (~(1 << PORTD7))) | (value << PORTD7);
-}
-
-
-// Transfer data to VFD, at the time only 1 character will be displayed,
-// to display full clock this call needs to be called 4-5 times
-void sendDataToVfd(uint16_t data) {
-  // Transfer 16-bits to the MAX6920AWP, only lower 12-bits will be kept, 
-  // bit 12-15 will be truncated in the MAX6920AWP chip
-  spi(data >> 8);
-  spi(data & 0xff);
-               
-  // Start displaying the data on VFD 
-  setVfdLoad(1);
-  delay_us(2);
-  
-  setVfdLoad(0);
-  delay_us(10);
 }
 
 
@@ -300,43 +205,8 @@ void systemPeripheralsSetup() {
   rtc_init(DS3231_INT_SQW_OFF,0);
                    
   // Power on the VFD but make sure it doesn't display anything yet
-  vfdOn();
   sendDataToVfd(0);  
-}
-
-
-// Take `hour` and `minute` values and send the corresponding data
-// to VFD which will display it
-void displayTime(uint8_t hour, uint8_t minute) {
-
-  const uint16_t segments[] = {
-    1 << VFD_A | 1 << VFD_B | 1 << VFD_C | 1 << VFD_D | 1 << VFD_E | 1 << VFD_F,               // 0 character
-    1 << VFD_B | 1 << VFD_C,                                                                   // 1 character
-    1 << VFD_A | 1 << VFD_B | 1 << VFD_G | 1 << VFD_E | 1 << VFD_D,                            // 2 character
-    1 << VFD_A | 1 << VFD_B | 1 << VFD_G | 1 << VFD_C | 1 << VFD_D,                            // 3 character
-    1 << VFD_F | 1 << VFD_G | 1 << VFD_B | 1 << VFD_C,                                         // 4 character
-    1 << VFD_A | 1 << VFD_F | 1 << VFD_G | 1 << VFD_C | 1 << VFD_D,                            // 5 character
-    1 << VFD_F | 1 << VFD_G | 1 << VFD_C | 1 << VFD_D | 1 << VFD_E,                            // 6 character
-    1 << VFD_A | 1 << VFD_B | 1 << VFD_C,                                                      // 7 character
-    1 << VFD_A | 1 << VFD_B | 1 << VFD_C | 1 << VFD_D | 1 << VFD_E | 1 << VFD_F | 1 << VFD_G,  // 8 character
-    1 << VFD_A | 1 << VFD_F | 1 << VFD_B | 1 << VFD_G | 1 << VFD_C,                            // 9 character
-  };                                     
-  
-  // Hours                                        
-  uint8_t hourTens = hour / 10;
-  sendDataToVfd((0 == hourTens) ? 0 : segments[hourTens] | 1 << VFD_CH_1); // display blank if it's leading 0    
-  sendDataToVfd(segments[hour % 10]                      | 1 << VFD_CH_2);             
-                    
-  // The ':' dots
-  sendDataToVfd(0                                        | displayDots << VFD_CH_3);
-         
-  // Minutes
-  sendDataToVfd(segments[(minute / 10) % 60]             | 1 << VFD_CH_4);    
-  sendDataToVfd(segments[minute % 10]                    | 1 << VFD_CH_5);    
-                      
-  // Make sure that characters are displayed for equal time and have equal brightness,  
-  // therefore leave the VFD in an off state                                                       
-  sendDataToVfd(0);   
+  vfdOn();
 }
 
 
@@ -416,7 +286,6 @@ void lowPowerAndWakingUp(uint8_t *hour, uint8_t *minute) {
     // After waking up, get the current time as a lot of time could have passed
     rtc_get_time(hour, minute, &second);            
     vfdOn();
-    delay_us(500); // Give time for DC2DC to stabilise before displaying the time
   }
 }
 
