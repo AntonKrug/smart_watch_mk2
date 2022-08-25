@@ -4,7 +4,7 @@
 #include <stdint.h>     // `uint8_t` and `uint16_t` 
 
 
-#define SLEEP_TIMEOUT 22    // 22 * 0.5s = 11s timeout before turning off the VFD
+#define SLEEP_TIMEOUT 255  // 255 * 0.033s = 8.5s timeout before turning off the VFD
 
 
 // Character selectors
@@ -35,7 +35,6 @@
 #define VFD_G 7
 
 
-extern volatile uint8_t displayDots; // Twice a second flip between displaying the dots and displaying nothing
 extern volatile uint8_t stayAwake;   // How long before going to sleep (2Hz counter counting to 0)
 
 

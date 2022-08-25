@@ -14,14 +14,38 @@ Data Stack size         : 128 bytes
 #include <sleep.h>      // Power managment
 #include <stdint.h>     // `uint8_t` instead `unsigned char` and `uint16_t` instead `unsigned int`
 
-#include "vfd.h" 
+#include "vfd.h"
+#include "main.h" 
 
-#define PRESS_TO_SET_TIME 4         // 4 * 0.5s  = 2.0s presses
+#define PRESS_TO_SET_TIME 60 // 60 * 0.033s  = 2.0s press to trigger the 'set time'
+#define PRESS_SHORT       15 // 15 * 0.033s  = 0.5s for short press
 
 
 volatile uint8_t buttonPressed = 0; // Counter how long the WAKE-UP button is pressed (2Hz counter)
 volatile uint8_t timeStale     = 0; // Flag to force 1Hz update from RTC to get correct time
+volatile uint8_t systick       = 0; // 30Hz systick counter
 
+
+
+// Timer 0 overflow interrupt service routine
+interrupt [TIM0_OVF] void timer0_ovf_isr(void)
+{
+  systick = (systick + 1) % 30;    // 30Hz tick counter                                    
+  if (0 == systick) timeStale = 1; // 1Hz flag to force the RTC update
+    
+  stayAwake = (stayAwake) ? stayAwake-1 : 0; // Countdown to 0               
+                
+  // Count how long the WAKE-UP button is pressed
+  if (PIND & (1<<PORTD2)) {
+    buttonPressed = 0;
+  } else {                                    
+    if (buttonPressed < 255) {
+      // At certain point we do not need to count any further, just do not overflow
+      buttonPressed++;
+    } 
+  }
+
+}
 
 // Timer1 overflow interrupt service routine (500ms period)
 interrupt [TIM1_OVF] void timer1_ovf_isr(void) {
@@ -29,26 +53,6 @@ interrupt [TIM1_OVF] void timer1_ovf_isr(void) {
   TCNT1H=0xBDC >> 8;
   TCNT1L=0xBDC & 0xff; 
                                                   
-  // Blink the ':' dots at 2Hz frequency
-  displayDots = !displayDots;   
-                                 
-  // 1Hz flag to force the RTC update
-  if (displayDots) timeStale = 1;                  
-
-  // Count how long before going to sleep
-  if (stayAwake > 0) {
-    stayAwake--; 
-  }
-                
-  // Count how long the WAKE-UP button is pressed
-  if (PIND & (1<<PORTD2)) {
-    buttonPressed = 0;
-  } else {                                    
-    if (buttonPressed < 250) {
-      // At certain point we do not need to count any further, just do not overflow
-      buttonPressed++;
-    } 
-  }
 }
 
 
@@ -96,12 +100,13 @@ void systemPeripheralsSetup() {
 
   // Timer/Counter 0 initialization
   // Clock source: System Clock
-  // Clock value: Timer 0 Stopped
+  // Clock value: 7.813 kHz
   // Mode: Normal top=0xFF
   // OC0A output: Disconnected
   // OC0B output: Disconnected
+  // Timer Period: 32.768 ms
   TCCR0A=(0<<COM0A1) | (0<<COM0A0) | (0<<COM0B1) | (0<<COM0B0) | (0<<WGM01) | (0<<WGM00);
-  TCCR0B=(0<<WGM02) | (0<<CS02) | (0<<CS01) | (0<<CS00);
+  TCCR0B=(0<<WGM02) | (1<<CS02) | (0<<CS01) | (1<<CS00);
   TCNT0=0x00;
   OCR0A=0x00;
   OCR0B=0x00;
@@ -144,7 +149,7 @@ void systemPeripheralsSetup() {
   OCR2B=0x00;
 
   // Timer/Counter 0 Interrupt(s) initialization
-  TIMSK0=(0<<OCIE0B) | (0<<OCIE0A) | (0<<TOIE0);
+  TIMSK0=(0<<OCIE0B) | (0<<OCIE0A) | (1<<TOIE0);
 
   // Timer/Counter 1 Interrupt(s) initialization
   TIMSK1=(0<<ICIE1) | (0<<OCIE1B) | (0<<OCIE1A) | (1<<TOIE1);
@@ -230,16 +235,16 @@ void setTimeStateMachine(uint8_t *hour, uint8_t *minute) {
   switch (state) {
     
     case 1: // Set hours
-      displayDots = 0; // Do not display the ':' dots when setting the hours  
-      if (buttonPressed) {
+      systick = 0; // Do not display the ':' dots when setting the hours  
+      if (buttonPressed > PRESS_SHORT) {
         *hour = (*hour + 1) % 24;
         actionHappenedResetCounters(); 
       }      
     break;              
       
     case 2: // Set minutes
-      displayDots = 1; // Constantly display the ':' dots when setting the minutes
-      if (buttonPressed) {
+      systick = 15; // Constantly display the ':' dots when setting the minutes
+      if (buttonPressed > PRESS_SHORT) {
         *minute = (*minute + 1) % 60;
         actionHappenedResetCounters(); 
       }
@@ -248,7 +253,7 @@ void setTimeStateMachine(uint8_t *hour, uint8_t *minute) {
     default:
       // state 0 -> normal clock operation
         
-      if (buttonPressed > 5) {
+      if (buttonPressed > PRESS_TO_SET_TIME) {
         // Go into the Set time state 
         state = 1;
         actionHappenedResetCounters(); 

@@ -4,9 +4,9 @@
 #include <stdint.h>  // `uint8_t` and `uint16_t` 
 
 #include "vfd.h"
+#include "main.h"
 
 
-volatile uint8_t displayDots = 0;             // Twice a second flip between displaying the dots and displaying nothing
 volatile uint8_t stayAwake   = SLEEP_TIMEOUT; // How long before going to sleep (2Hz counter counting to 0)
 
 
@@ -106,7 +106,7 @@ void displayTime(uint8_t hour, uint8_t minute) {
   sendDataToVfd(segments[hour % 10]                      | 1 << VFD_CH_2);             
                     
   // The ':' dots
-  sendDataToVfd(0                                        | displayDots << VFD_CH_3);
+  sendDataToVfd(0                                        | (systick>=15) << VFD_CH_3);
          
   // Minutes
   sendDataToVfd(segments[(minute / 10) % 60]             | 1 << VFD_CH_4);    
