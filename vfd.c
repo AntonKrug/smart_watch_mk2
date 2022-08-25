@@ -12,25 +12,25 @@ volatile uint8_t stayAwake   = SLEEP_TIMEOUT; // How long before going to sleep 
 
 // Turn off VFD's high-voltage DC2DC boost converter (PD1)
 void dc2dcOff(void) {
-  PORTD = PORTD & (~(1 << PORTD1));
+  PORTD &= ~(1 << PORTD1);
 }
 
 
 // Turn on VFD's high-voltage DC2DC boost converter (PD1) 
 void dc2dcOn(void) {
-  PORTD = PORTD | (1 << PORTD1);
+  PORTD |= 1 << PORTD1;
 }
 
 
 // Turn off VFD's low-voltage filament heater (PB1) 
 void fHeatOff(void) {
-  PORTB = PORTB & (~(1 << PORTB1));
+  PORTB &= ~(1 << PORTB1);
 }
 
 
 // Turn on VFD's low-voltage filament heater (PB1) 
 void fHeatOn(void) {
-  PORTB = PORTB | (1 << PORTB1);
+  PORTB |= 1 << PORTB1;
 }
 
 
