@@ -16,6 +16,9 @@ Data Stack size         : 128 bytes
 
 #include "vfd.h" 
 
+#define PRESS_TO_SET_TIME 4         // 4 * 0.5s  = 2.0s presses
+
+
 volatile uint8_t buttonPressed = 0; // Counter how long the WAKE-UP button is pressed (2Hz counter)
 volatile uint8_t timeStale     = 0; // Flag to force 1Hz update from RTC to get correct time
 

@@ -5,7 +5,6 @@
 
 
 #define SLEEP_TIMEOUT 22    // 22 * 0.5s = 11s timeout before turning off the VFD
-#define PRESS_TO_SET_TIME 4 // 4 * 0.5s  = 2.0s presses
 
 
 // Character selectors
