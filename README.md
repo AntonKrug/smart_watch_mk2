@@ -13,11 +13,13 @@ The idea was to take a modern CPU and combine it with obsolete display technolog
 
 # Code
 
-Because the watch just displays time and doesn't anything else, therefore the code is fairly trivial and currently kept in a few files:
+Because the watch just displays the time and doesn't do anything else, therefore the code is fairly trivial and currently kept in a few files:
 
 - [main.c](https://github.com/AntonKrug/smart_watch_mk2/blob/main/main.c)
 - [vfd.c](https://github.com/AntonKrug/smart_watch_mk2/blob/main/vfd.c)
 - [vfd.h](https://github.com/AntonKrug/smart_watch_mk2/blob/main/vfd.h)
+- [neopixel.c](https://github.com/AntonKrug/smart_watch_mk2/blob/main/neopixel.c)
+- [neopixel.h](https://github.com/AntonKrug/smart_watch_mk2/blob/main/neopixel.h)
 
 It requires CodeVisionAVR C compiler for compilation (this will be fixed in the future when it will be converted to a GCC project).
 
