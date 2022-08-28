@@ -7,7 +7,7 @@
 #include "main.h"
 
 
-volatile uint8_t stayAwake   = SLEEP_TIMEOUT; // How long before going to sleep (2Hz counter counting to 0)
+volatile uint8_t stayAwake = SLEEP_TIMEOUT; // How long before going to sleep (20Hz counter counting to 0)
 
 
 // Turn off VFD's high-voltage DC2DC boost converter (PD1)

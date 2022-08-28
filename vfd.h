@@ -35,7 +35,7 @@
 #define VFD_G 7
 
 
-extern volatile uint8_t stayAwake;              // How long before going to sleep (2Hz counter counting to 0)
+extern volatile uint8_t stayAwake;              // How long before going to sleep (20Hz counter counting to 0)
 
 
 void vfdOn(void);                               // Turn on both DC2DC and filament heater
