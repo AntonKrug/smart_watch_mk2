@@ -256,6 +256,7 @@ void setTimeStateMachine(uint8_t *hour, uint8_t *minute) {
       if (buttonPressed > PRESS_TO_SET_TIME) {
         // Go into the Set time state 
         state = 1;
+        setNeopixel(NEOPIXEL_SET_HOURS_COLOR);
         actionHappenedResetCounters(); 
       } else {
         if (timeStale) { 
@@ -270,14 +271,16 @@ void setTimeStateMachine(uint8_t *hour, uint8_t *minute) {
     
   if ( (state > 0) && (stayAwake < (SLEEP_TIMEOUT - PRESS_TO_SET_TIME)) ) { 
     // If in setting mode then after a few seconds of inactivity go to the next state automatically
-    state++;
+    state++;                                                                                              
+    setNeopixel(NEOPIXEL_SET_MINUTES_COLOR);
     actionHappenedResetCounters();      
   }
     
   if (state > 2) {
     // Reached the end, done setting the time, save it to the RTC chip and go to normal operation 
     rtc_set_time(*hour, *minute, 0);
-    state = 0;
+    state = 0;  
+    setNeopixel(NEOPIXEL_CLOCK_COLOR);    
     actionHappenedResetCounters();       
   }
 }
@@ -288,12 +291,14 @@ void lowPowerAndWakingUp(uint8_t *hour, uint8_t *minute) {
   
   if (0 == stayAwake) {           
     // Reached sleep timeout, going to power down state
+    setNeopixel(NEOPIXEL_BLACK_COLOR);
     vfdOff();
     powerdown(); // External IRQ caused by WAKE-UP button can resume the CPU
                     
     // After waking up, get the current time as a lot of time could have passed
     rtc_get_time(hour, minute, &second);            
-    vfdOn();
+    setNeopixel(NEOPIXEL_CLOCK_COLOR);
+    vfdOn();                            
   }
 }
 
@@ -304,6 +309,7 @@ void main(void) {
             
   systemPeripheralsSetup();              // Set all peripherals into a known state      
   rtc_set_time(hour, minute, 0);         // Set RTC clock to known time
+  setNeopixel(NEOPIXEL_CLOCK_COLOR);  
 
   while (1) {                            // The super loop -> whole life of this watch                   
                            
