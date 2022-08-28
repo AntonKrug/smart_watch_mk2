@@ -18,18 +18,18 @@ Data Stack size         : 128 bytes
 #include "main.h" 
 #include "neopixel.h"
 
-#define PRESS_TO_SET_TIME 20 // 20 * 0.1s  = 2.0s press to trigger the 'set time'
-#define PRESS_SHORT        5 //  5 * 0.1s  = 0.5s for short press
+#define PRESS_TO_SET_TIME 40 // 40 * 0.05s  = 2.0s press to trigger the 'set time'
+#define PRESS_SHORT       10 // 10 * 0.05s  = 0.5s for short press
 
 
 volatile uint8_t buttonPressed = 0; // Counter how long the WAKE-UP button is pressed (10Hz counter)
 volatile uint8_t timeStale     = 0; // Flag to force 1Hz update from RTC to get correct time
-volatile uint8_t systick       = 0; // 10Hz systick counter
+volatile uint8_t systick       = 0; // 20Hz systick counter
 
 
 // Timer1 output compare A interrupt service routine
 interrupt [TIM1_COMPA] void timer1_compa_isr(void) {
-  systick = (systick + 1) % SYSTICK_MAX;     // 10Hz tick counter                                    
+  systick = (systick + 1) % SYSTICK_MAX;     // 20Hz tick counter                                    
   if (0 == systick) timeStale = 1;           // 1Hz flag to force the RTC update    
   stayAwake = (stayAwake) ? stayAwake-1 : 0; // Countdown to 0               
                 
@@ -108,7 +108,7 @@ void systemPeripheralsSetup() {
   // OC1B output: Disconnected
   // Noise Canceler: Off
   // Input Capture on Falling Edge
-  // Timer Period: 0.10048 s
+  // Timer Period: 50.048 ms
   // Timer1 Overflow Interrupt: Off
   // Input Capture Interrupt: Off
   // Compare A Match Interrupt: On
@@ -119,8 +119,8 @@ void systemPeripheralsSetup() {
   TCNT1L=0x00;
   ICR1H=0x00;
   ICR1L=0x00;
-  OCR1AH=0x03;
-  OCR1AL=0x10;
+  OCR1AH=0x01;
+  OCR1AL=0x86;
   OCR1BH=0x00;
   OCR1BL=0x00;
   

@@ -4,7 +4,7 @@
 #include <stdint.h>     // `uint8_t` and `uint16_t` 
 
 
-#define SLEEP_TIMEOUT 120  // 120 * 0.1s = 12s timeout before turning off the VFD
+#define SLEEP_TIMEOUT 240  // 240 * 0.05s = 12s timeout before turning off the VFD
 
 
 // Character selectors
