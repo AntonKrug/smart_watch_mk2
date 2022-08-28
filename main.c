@@ -20,11 +20,11 @@ Data Stack size         : 128 bytes
 
 
 volatile uint8_t buttonPressed  = 0; // Counter how long the WAKE-UP button is pressed (20Hz counter)
-volatile uint8_t timeStale     = 0; // Flag to force 1Hz update from RTC to get correct time
-volatile uint8_t systick       = 0; // 20Hz systick counter
+volatile bit     timeStale      = 0; // Flag to force 1Hz update from RTC to get correct time
+volatile uint8_t systick        = 0; // 20Hz systick counter
 
 
-// Timer1 output compare A interrupt service routine
+// Timer1 output compare A interrupt service routine (a 20Hz systick)
 interrupt [TIM1_COMPA] void timer1_compa_isr(void) {
   systick = (systick + 1) % SYSTICK_MAX;     // 20Hz tick counter                                    
   if (0 == systick) timeStale = 1;           // 1Hz flag to force the RTC update    
@@ -32,8 +32,11 @@ interrupt [TIM1_COMPA] void timer1_compa_isr(void) {
                 
   // Count how long the WAKE-UP button is pressed
   if (PIND & (1<<PORTD2)) {
-    buttonPressed = 0;
-  } else {                                    
+    // Is in pull-up state means the button is not pressed
+    buttonPressed = 0;    
+  } else {
+                                                 
+    // Button is pressed right now
     if (buttonPressed < 255) {
       // At certain point we do not need to count any further, just do not overflow
       buttonPressed++;
@@ -44,7 +47,7 @@ interrupt [TIM1_COMPA] void timer1_compa_isr(void) {
 
 
 // Pin change 16-23 interrupt service routine
-// filtered to PCINT18/PD2 pin -> level changed on WAKE-UP button
+// filtered to PCINT18/PD2 pin -> level changed on the WAKE-UP button
 interrupt [PC_INT2] void pin_change_isr2(void) {
   #asm("cli")                     // Globally disable interrupts
   PORTD         |= (1<<PORTD2);   // Go into internal pull up mode(~30k) to charge the pin up
@@ -56,13 +59,14 @@ interrupt [PC_INT2] void pin_change_isr2(void) {
 }
 
 
-// Something changed, counters need to start from scratch
+// Something changed, button maybe pressed, or a clock state changed, counters need to start from scratch
 void actionHappenedResetCounters(void) {
   buttonPressed = 0; 
   stayAwake     = SLEEP_TIMEOUT;
 }
 
 
+// Handle all 3 states the clock can be in
 void setTimeStateMachine(uint8_t *hour, uint8_t *minute) {
   // state 0 normal operation - display clock
   // state 1 set hours
@@ -72,7 +76,7 @@ void setTimeStateMachine(uint8_t *hour, uint8_t *minute) {
 
   switch (state) {
     
-    case 1: // Set hours
+    case 1:  // Set hours
       systick = 0; // Do not display the ':' dots when setting the hours  
       if (buttonPressed > PRESS_SHORT) {
         *hour = (*hour + 1) % 24;
@@ -80,7 +84,7 @@ void setTimeStateMachine(uint8_t *hour, uint8_t *minute) {
       }      
     break;              
       
-    case 2: // Set minutes
+    case 2:  // Set minutes
       systick = SYSTICK_MAX/2; // Constantly display the ':' dots when setting the minutes
       if (buttonPressed > PRESS_SHORT) {
         *minute = (*minute + 1) % 60;
@@ -88,16 +92,16 @@ void setTimeStateMachine(uint8_t *hour, uint8_t *minute) {
       }
     break;
       
-    default:
-      // state 0 -> normal clock operation
-        
+    default: // state 0 -> normal clock operation        
       if (buttonPressed > PRESS_TO_SET_TIME) {
-        // Go into the Set time state 
+        // Pressed button for too long -> go into the 'Set time' states 
         state = 1;
-        setNeopixel(NEOPIXEL_SET_HOURS_COLOR);
+        neopixelSetColor(NEOPIXEL_SET_HOURS_COLOR);
         actionHappenedResetCounters(); 
-      } else {
-        if (timeStale) { 
+      } else {                                    
+      
+        // Nothing pressed, just display the clock
+        if (timeStale) {  
           // Do 1Hz RTC update of the exact time
           uint8_t second; // Seconds are not displayed and not used anywhere 
           rtc_get_time(hour, minute, &second);   
@@ -108,17 +112,18 @@ void setTimeStateMachine(uint8_t *hour, uint8_t *minute) {
   }
     
   if ( (state > 0) && (stayAwake < (SLEEP_TIMEOUT - PRESS_TO_SET_TIME)) ) { 
-    // If in setting mode then after a few seconds of inactivity go to the next state automatically
+    // If currently in any setting mode, then after a few seconds of inactivity go to the next state automatically
     state++;                                                                                              
-    setNeopixel(NEOPIXEL_SET_MINUTES_COLOR);
+    neopixelSetColor(NEOPIXEL_SET_MINUTES_COLOR);
     actionHappenedResetCounters();      
   }
     
   if (state > 2) {
-    // Reached the end, done setting the time, save it to the RTC chip and go to normal operation 
+    // Reached the end of state machine, done with setting the time, 
+    // save the new time to the RTC chip and go to normal operation 
     rtc_set_time(*hour, *minute, 0);
     state = 0;  
-    setNeopixel(NEOPIXEL_CLOCK_COLOR);    
+    neopixelSetColor(NEOPIXEL_CLOCK_COLOR);    
     actionHappenedResetCounters();       
   }
 }
@@ -129,13 +134,13 @@ void lowPowerAndWakingUp(uint8_t *hour, uint8_t *minute) {
   
   if (0 == stayAwake) {           
     // Reached sleep timeout, going to power down state
-    setNeopixel(NEOPIXEL_BLACK_COLOR);
+    neopixelSetColor(NEOPIXEL_BLACK_COLOR);
     vfdOff();
     powerdown(); // External IRQ caused by WAKE-UP button can resume the CPU
                     
     // After waking up, get the current time as a lot of time could have passed
     rtc_get_time(hour, minute, &second);            
-    setNeopixel(NEOPIXEL_CLOCK_COLOR);
+    neopixelFadeCountDown = NEOPIXEL_START_FADE; // Start Neopixel's fade from black to red 
     vfdOn();                            
   }
 }
@@ -147,7 +152,7 @@ void main(void) {
             
   systemPeripheralsSetup();              // Set all peripherals into a known state      
   rtc_set_time(hour, minute, 0);         // Set RTC clock to known time
-  setNeopixel(NEOPIXEL_CLOCK_COLOR);  
+  neopixelFadeCountDown(NEOPIXEL_CLOCK_COLOR);  
 
   while (1) {                            // The super loop -> whole life of this watch                   
                            
