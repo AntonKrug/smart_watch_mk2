@@ -56,7 +56,6 @@ The `MAX6920AWP` officially is not an SPI device but has DataIn `DIN` and DataCl
 - Add a strap so it can be used as a wrist watch
 - Switch from CodeVisionAVR C compiler to GCC compiler
 - Replace the bundled AVR C HAL with C++ implementation
-- Take advantage of `WS2812B` neopixel and provide under-glow
 - Add vibration motor to function as a alarm
 - Try if the heating filament can be used for capacitive touch sensing
 - Switch from AVR mega MCU to a [ESP32-C3](https://www.espressif.com/en/products/socs/esp32-c3)
