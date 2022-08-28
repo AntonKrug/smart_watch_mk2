@@ -48,14 +48,6 @@ interrupt [TIM0_OVF] void timer0_ovf_isr(void)
 
 }
 
-// Timer1 overflow interrupt service routine (500ms period)
-interrupt [TIM1_OVF] void timer1_ovf_isr(void) {
-  // Reinitialize Timer1 value to keep triggering at the 2Hz rate
-  TCNT1H=0xBDC >> 8;
-  TCNT1L=0xBDC & 0xff; 
-                                                  
-}
-
 
 // Pin change 16-23 interrupt service routine
 // filtered to PCINT18/PD2 pin -> level changed on WAKE-UP button
@@ -80,23 +72,22 @@ void systemPeripheralsSetup() {
   #pragma optsize+
   #endif
                    
-  // Input/Output Ports initialization
-  // Port B initialization
-  // Function: Bit7=In Bit6=In Bit5=Out Bit4=In Bit3=Out Bit2=Out Bit1=Out Bit0=In 
-  DDRB=(0<<DDB7) | (0<<DDB6) | (1<<DDB5) | (0<<DDB4) | (1<<DDB3) | (1<<DDB2) | (1<<DDB1) | (0<<DDB0);
-  // State: Bit7=T Bit6=T Bit5=T Bit4=T Bit3=T Bit2=T Bit1=T Bit0=T 
+  // -------- Port B initialization --------  
+  //     In            In            Out           In            Out           Out           Out           In
+  DDRB= (0<<DDB7)   | (0<<DDB6)   | (1<<DDB5)   | (0<<DDB4)   | (1<<DDB3)   | (1<<DDB2)   | (1<<DDB1)   | (0<<DDB0);        
+  //     T             T             0             T             T             0             0             T 
   PORTB=(0<<PORTB7) | (0<<PORTB6) | (0<<PORTB5) | (0<<PORTB4) | (0<<PORTB3) | (0<<PORTB2) | (0<<PORTB1) | (0<<PORTB0);
 
-  // Port C initialization
-  // Function: Bit6=In Bit5=In Bit4=In Bit3=In Bit2=In Bit1=In Bit0=In 
-  DDRC=(0<<DDC6) | (0<<DDC5) | (0<<DDC4) | (0<<DDC3) | (0<<DDC2) | (0<<DDC1) | (0<<DDC0);
-  // State: Bit6=T Bit5=T Bit4=T Bit3=T Bit2=T Bit1=T Bit0=T 
+  // --------  Port C initialization -------- 
+  //     In            In            In            In            In            In            In
+  DDRC= (0<<DDC6)   | (0<<DDC5)   | (0<<DDC4)   | (0<<DDC3)   | (0<<DDC2)   | (0<<DDC1)   | (0<<DDC0);
+  //     T             T             T             T             T             T             T             
   PORTC=(0<<PORTC6) | (0<<PORTC5) | (0<<PORTC4) | (0<<PORTC3) | (0<<PORTC2) | (0<<PORTC1) | (0<<PORTC0);  
   
-  // Port D initialization
-  // Function: Bit7=Out Bit6=In Bit5=In Bit4=In Bit3=In Bit2=In Bit1=Out Bit0=In 
-  DDRD=(1<<DDD7) | (0<<DDD6) | (0<<DDD5) | (0<<DDD4) | (0<<DDD3) | (0<<DDD2) | (1<<DDD1) | (0<<DDD0);
-  // State: Bit7=T Bit6=T Bit5=T Bit4=T Bit3=T Bit2=T Bit1=T Bit0=T 
+  // -------- Port D initialization --------
+  //     Out           In            In            In            In            In            Out           In
+  DDRD= (1<<DDD7)   | (0<<DDD6)   | (0<<DDD5)   | (0<<DDD4)   | (0<<DDD3)   | (0<<DDD2)   | (1<<DDD1)   | (0<<DDD0);
+  //     0             T             T             T             T             T             0             T             
   PORTD=(0<<PORTD7) | (0<<PORTD6) | (0<<PORTD5) | (0<<PORTD4) | (0<<PORTD3) | (0<<PORTD2) | (0<<PORTD1) | (0<<PORTD0);
 
   // Timer/Counter 0 initialization
@@ -111,6 +102,7 @@ void systemPeripheralsSetup() {
   TCNT0=0x00;
   OCR0A=0x00;
   OCR0B=0x00;
+
 
   // Timer/Counter 1 initialization
   // Clock source: System Clock
