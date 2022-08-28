@@ -16,6 +16,7 @@ Data Stack size         : 128 bytes
 
 #include "vfd.h"
 #include "main.h" 
+#include "neopixel.h"
 
 #define PRESS_TO_SET_TIME 60 // 60 * 0.033s  = 2.0s press to trigger the 'set time'
 #define PRESS_SHORT       15 // 15 * 0.033s  = 0.5s for short press
