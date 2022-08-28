@@ -16,12 +16,25 @@ The idea was to take a modern CPU and combine it with obsolete display technolog
 Because the watch just displays the time and doesn't do anything else, therefore the code is fairly trivial and currently kept in a few files:
 
 - [main.c](https://github.com/AntonKrug/smart_watch_mk2/blob/main/main.c)
+- [reset.c](https://github.com/AntonKrug/smart_watch_mk2/blob/main/reset.c)
+- [reset.h](https://github.com/AntonKrug/smart_watch_mk2/blob/main/reset.h)
 - [vfd.c](https://github.com/AntonKrug/smart_watch_mk2/blob/main/vfd.c)
 - [vfd.h](https://github.com/AntonKrug/smart_watch_mk2/blob/main/vfd.h)
 - [neopixel.c](https://github.com/AntonKrug/smart_watch_mk2/blob/main/neopixel.c)
 - [neopixel.h](https://github.com/AntonKrug/smart_watch_mk2/blob/main/neopixel.h)
 
 It requires CodeVisionAVR C compiler for compilation (this will be fixed in the future when it will be converted to a GCC project).
+
+
+# Resource utilization
+
+| AVR Mega88 PA resources  | Used by this project  | Utilization  |
+| ------------------------ | --------------------- | ------------ |
+| 1024 bytes of RAM | 60 bytes used of allocated 128 byte stack + 24 bytes global variables | 14%   |
+| 8 KB | 3118 bytes | 38% |
+| 512 bytes of EEPROM | 0 bytes | 0% |
+
+Even when the AVR Mega88 doesn't have much resources, still most of them are free and available for the future features.
 
 # Schematic
 
