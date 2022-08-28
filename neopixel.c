@@ -29,7 +29,7 @@ void neopixelFadeHandler(void) {
       
       neopixelFadeCountDown--;
       if (neopixelFadeCountDown) {
-        neopixelSetColor(reverse4bits(NEOPIXEL_START_FADE - neopixelFadeCountDown) << 4);
+        neopixelSetColor(reverse4bits((NEOPIXEL_START_FADE - neopixelFadeCountDown)/2) << 4);
       } else {
         neopixelSetColor(NEOPIXEL_CLOCK_COLOR); // Final color is reached
       }      
@@ -37,7 +37,7 @@ void neopixelFadeHandler(void) {
     
     if (16 > stayAwake) {
       // At the last 16 ticks of the systick timer the color will fade from red to black
-      neopixelSetColor(reverse4bits(stayAwake) << 4);
+      neopixelSetColor(reverse4bits((stayAwake)/2) << 4);
     }
           
     neopixelUpdate = 0;
