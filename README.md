@@ -3,6 +3,11 @@
 ![Display on](https://raw.githubusercontent.com/AntonKrug/smart_watch_mk2/assets/images/photo00.jpg)
 
 
+Video demo (click on the thumbnail to play the video):
+
+[![DIY Watch YT demo](https://img.youtube.com/vi/cu711Lb3NEY/0.jpg)](https://youtu.be/cu711Lb3NEY)
+
+
 The name is ironic as the watch can only display time and nothing else, not even an alarm feature.
 
 The idea was to take a modern CPU and combine it with obsolete display technology, in this case [Vacuum fluorescent display (VFD)](https://en.wikipedia.org/wiki/Vacuum_fluorescent_display). The `IVL2-7_5` display has a very nice glow, which is for me impossible to capture with a camera, but in person the neon-like glowing digits really stand out (similar to nixie tubes).
