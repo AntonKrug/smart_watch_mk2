@@ -21,6 +21,7 @@ The idea was to take a modern CPU and combine it with obsolete display technolog
 Because the watch just displays the time and doesn't do anything else, therefore the code is fairly trivial and currently kept in a few files:
 
 - [main.c](https://github.com/AntonKrug/smart_watch_mk2/blob/main/main.c)
+- [main.h](https://github.com/AntonKrug/smart_watch_mk2/blob/main/main.h)
 - [reset.c](https://github.com/AntonKrug/smart_watch_mk2/blob/main/reset.c)
 - [reset.h](https://github.com/AntonKrug/smart_watch_mk2/blob/main/reset.h)
 - [vfd.c](https://github.com/AntonKrug/smart_watch_mk2/blob/main/vfd.c)
