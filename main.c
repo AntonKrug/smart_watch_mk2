@@ -27,6 +27,7 @@ volatile uint8_t systick        = 0; // 20Hz systick counter
 // Timer1 output compare A interrupt service routine (a 20Hz systick)
 interrupt [TIM1_COMPA] void timer1_compa_isr(void) {
   systick = (systick + 1) % SYSTICK_MAX;     // 20Hz tick counter                                    
+  neopixelUpdate = 1;                        // Flag set true to update the Neopixel at systick frequency
   if (0 == systick) timeStale = 1;           // 1Hz flag to force the RTC update    
   stayAwake = (stayAwake) ? stayAwake-1 : 0; // Countdown to 0               
                 
@@ -54,7 +55,7 @@ interrupt [PC_INT2] void pin_change_isr2(void) {
   buttonPressed  = 0;             // Button state changed, start counting from scratch
   PORTD         &= ~(1<<PORTD2);  // Go back to a tri-state mode which is externally pulled up (~1M) 
   stayAwake      = SLEEP_TIMEOUT; // Pressing or lifting the button will keep us awake
-  PCIFR         |= (1<<PCIF2);    // Clear pending IRQ caused by the pin discharge to 0 -> and pull up to 1
+  PCIFR         |= (1<<PCIF2);    // Clear pending IRQ caused by the pin charge from possible 0 to 1
   #asm("sei")                     // Globally enable interrupts    
 }
 
@@ -147,18 +148,19 @@ void lowPowerAndWakingUp(uint8_t *hour, uint8_t *minute) {
 
 
 void main(void) {
-  uint8_t hour   = 8;                    // On power up start with 8:00 time
+  uint8_t hour   = 8;                          // On power up start with 8:00 time
   uint8_t minute = 0;
             
-  systemPeripheralsSetup();              // Set all peripherals into a known state      
-  rtc_set_time(hour, minute, 0);         // Set RTC clock to known time
-  neopixelFadeCountDown(NEOPIXEL_CLOCK_COLOR);  
+  systemPeripheralsSetup();                    // Set all peripherals into a known state      
+  rtc_set_time(hour, minute, 0);               // Set RTC clock to a known time  
+  neopixelFadeCountDown = NEOPIXEL_START_FADE; // Start Neopixel's fade from black to red
 
-  while (1) {                            // The super loop -> whole life of this watch                   
+  while (1) {                                  // The super loop -> whole life of this watch                   
                            
-    setTimeStateMachine(&hour, &minute); // Handles 'Set Time' functionality                               
-    displayTime(hour, minute);           // The VFD needs constant refresh        
-    lowPowerAndWakingUp(&hour, &minute); // Goes into low-power mode after a timeout 
+    setTimeStateMachine(&hour, &minute);       // Handles 'Set Time' functionality                               
+    displayTime(hour, minute);                 // The VFD needs constant refresh 
+    neopixelFadeHandler();                     // Updates the Neopixel color when the fade is enabled       
+    lowPowerAndWakingUp(&hour, &minute);       // Goes into low-power mode after a timeout 
   } 
   
 }
