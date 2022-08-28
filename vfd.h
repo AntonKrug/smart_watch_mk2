@@ -4,7 +4,7 @@
 #include <stdint.h>     // `uint8_t` and `uint16_t` 
 
 
-#define SLEEP_TIMEOUT 255  // 255 * 0.033s = 8.5s timeout before turning off the VFD
+#define SLEEP_TIMEOUT 90  // 90 * 0.1s = 9s timeout before turning off the VFD
 
 
 // Character selectors
@@ -35,14 +35,12 @@
 #define VFD_G 7
 
 
-extern volatile uint8_t stayAwake;   // How long before going to sleep (2Hz counter counting to 0)
+extern volatile uint8_t stayAwake;              // How long before going to sleep (2Hz counter counting to 0)
 
 
-void vfdOn(void);                    // Turn on both DC2DC and filament heater
-void vfdOff(void);                   // Turn off both DC2DC and filament heater
-
+void vfdOn(void);                               // Turn on both DC2DC and filament heater
+void vfdOff(void);                              // Turn off both DC2DC and filament heater
 void sendDataToVfd(uint16_t data);              // Transfer 1 character to VFD
-
 void displayTime(uint8_t hour, uint8_t minute); // Display HH:MM on the VFD
 
 

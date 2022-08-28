@@ -3,6 +3,8 @@
 
 #include <stdint.h> // `uint8_t` and `uint16_t` 
 
-extern volatile uint8_t systick; // 30Hz systick counter
+#define SYSTICK_MAX 10 // Systick will count only from 0 to 9
+
+extern volatile uint8_t systick; // 10Hz systick counter
 
 #endif

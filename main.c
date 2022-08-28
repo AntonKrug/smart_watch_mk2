@@ -18,22 +18,19 @@ Data Stack size         : 128 bytes
 #include "main.h" 
 #include "neopixel.h"
 
-#define PRESS_TO_SET_TIME 60 // 60 * 0.033s  = 2.0s press to trigger the 'set time'
-#define PRESS_SHORT       15 // 15 * 0.033s  = 0.5s for short press
+#define PRESS_TO_SET_TIME 20 // 20 * 0.1s  = 2.0s press to trigger the 'set time'
+#define PRESS_SHORT        5 //  5 * 0.1s  = 0.5s for short press
 
 
-volatile uint8_t buttonPressed = 0; // Counter how long the WAKE-UP button is pressed (2Hz counter)
+volatile uint8_t buttonPressed = 0; // Counter how long the WAKE-UP button is pressed (10Hz counter)
 volatile uint8_t timeStale     = 0; // Flag to force 1Hz update from RTC to get correct time
-volatile uint8_t systick       = 0; // 30Hz systick counter
+volatile uint8_t systick       = 0; // 10Hz systick counter
 
 
-
-// Timer 0 overflow interrupt service routine
-interrupt [TIM0_OVF] void timer0_ovf_isr(void)
-{
-  systick = (systick + 1) % 30;    // 30Hz tick counter                                    
-  if (0 == systick) timeStale = 1; // 1Hz flag to force the RTC update
-    
+// Timer1 output compare A interrupt service routine
+interrupt [TIM1_COMPA] void timer1_compa_isr(void) {
+  systick = (systick + 1) % SYSTICK_MAX;     // 10Hz tick counter                                    
+  if (0 == systick) timeStale = 1;           // 1Hz flag to force the RTC update    
   stayAwake = (stayAwake) ? stayAwake-1 : 0; // Countdown to 0               
                 
   // Count how long the WAKE-UP button is pressed
@@ -92,13 +89,12 @@ void systemPeripheralsSetup() {
 
   // Timer/Counter 0 initialization
   // Clock source: System Clock
-  // Clock value: 7.813 kHz
+  // Clock value: Timer 0 Stopped
   // Mode: Normal top=0xFF
   // OC0A output: Disconnected
   // OC0B output: Disconnected
-  // Timer Period: 32.768 ms
   TCCR0A=(0<<COM0A1) | (0<<COM0A0) | (0<<COM0B1) | (0<<COM0B0) | (0<<WGM01) | (0<<WGM00);
-  TCCR0B=(0<<WGM02) | (1<<CS02) | (0<<CS01) | (1<<CS00);
+  TCCR0B=(0<<WGM02) | (0<<CS02) | (0<<CS01) | (0<<CS00);
   TCNT0=0x00;
   OCR0A=0x00;
   OCR0B=0x00;
@@ -106,24 +102,25 @@ void systemPeripheralsSetup() {
 
   // Timer/Counter 1 initialization
   // Clock source: System Clock
-  // Clock value: Timer1 Stopped
-  // Mode: Normal top=0xFFFF
+  // Clock value: 7.813 kHz
+  // Mode: CTC top=OCR1A
   // OC1A output: Disconnected
   // OC1B output: Disconnected
   // Noise Canceler: Off
   // Input Capture on Falling Edge
+  // Timer Period: 0.10048 s
   // Timer1 Overflow Interrupt: Off
   // Input Capture Interrupt: Off
-  // Compare A Match Interrupt: Off
+  // Compare A Match Interrupt: On
   // Compare B Match Interrupt: Off
   TCCR1A=(0<<COM1A1) | (0<<COM1A0) | (0<<COM1B1) | (0<<COM1B0) | (0<<WGM11) | (0<<WGM10);
-  TCCR1B=(0<<ICNC1) | (0<<ICES1) | (0<<WGM13) | (0<<WGM12) | (0<<CS12) | (0<<CS11) | (0<<CS10);
+  TCCR1B=(0<<ICNC1) | (0<<ICES1) | (0<<WGM13) | (1<<WGM12) | (1<<CS12) | (0<<CS11) | (1<<CS10);
   TCNT1H=0x00;
   TCNT1L=0x00;
   ICR1H=0x00;
   ICR1L=0x00;
-  OCR1AH=0x00;
-  OCR1AL=0x00;
+  OCR1AH=0x03;
+  OCR1AL=0x10;
   OCR1BH=0x00;
   OCR1BL=0x00;
   
@@ -142,10 +139,10 @@ void systemPeripheralsSetup() {
   OCR2B=0x00;
 
   // Timer/Counter 0 Interrupt(s) initialization
-  TIMSK0=(0<<OCIE0B) | (0<<OCIE0A) | (1<<TOIE0);
+  TIMSK0=(0<<OCIE0B) | (0<<OCIE0A) | (0<<TOIE0);
 
   // Timer/Counter 1 Interrupt(s) initialization
-  TIMSK1=(0<<ICIE1) | (0<<OCIE1B) | (0<<OCIE1A) | (0<<TOIE1);
+  TIMSK1=(0<<ICIE1) | (0<<OCIE1B) | (1<<OCIE1A) | (0<<TOIE1);
 
   // Timer/Counter 2 Interrupt(s) initialization
   TIMSK2=(0<<OCIE2B) | (0<<OCIE2A) | (0<<TOIE2);
@@ -236,7 +233,7 @@ void setTimeStateMachine(uint8_t *hour, uint8_t *minute) {
     break;              
       
     case 2: // Set minutes
-      systick = 15; // Constantly display the ':' dots when setting the minutes
+      systick = SYSTICK_MAX/2; // Constantly display the ':' dots when setting the minutes
       if (buttonPressed > PRESS_SHORT) {
         *minute = (*minute + 1) % 60;
         actionHappenedResetCounters(); 
