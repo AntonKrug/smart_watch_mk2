@@ -7,11 +7,14 @@
 // Order colors: Blue Red Green (0xBRG)
 // MSB is first means that 0x1 will be a brighter green than 0x8
 // Hardcoded to PB2 pin and timed exactly for a 8MHz clock
+// CodeVision AVR compiler doesn't support good mixing of C and ASM
+// had to hardcode it for its ABI, while rewritting this into GCC
+// and its "Extended assembly" would make it more portable and robust
 void setNeopixel(uint16_t color) {
   #asm 
     cli              // disable IRQ
-    ldi  r31, 12     // counter=12  (12 bits to count down)
-    lsr  r17         // color = color >> 1
+    ldi  r31, 12     // counter=12  (12 bits to count down), the ABI promising R31 is free to use in assembly
+    lsr  r17         // color = color >> 1    hardcoding R16 and R17 for CodeVision AVR ABI :( 
     ror  r16    
     brcc _bit_low    // if the bit shifted from color is 0 then push the low bits, otherwise push the high bits 
        
