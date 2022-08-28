@@ -14,15 +14,13 @@ Data Stack size         : 128 bytes
 #include <sleep.h>      // Power managment
 #include <stdint.h>     // `uint8_t` instead `unsigned char` and `uint16_t` instead `unsigned int`
 
-#include "vfd.h"
 #include "main.h" 
+#include "reset.h"
+#include "vfd.h"
 #include "neopixel.h"
 
-#define PRESS_TO_SET_TIME 40 // 40 * 0.05s  = 2.0s press to trigger the 'set time'
-#define PRESS_SHORT       10 // 10 * 0.05s  = 0.5s for short press
 
-
-volatile uint8_t buttonPressed = 0; // Counter how long the WAKE-UP button is pressed (10Hz counter)
+volatile uint8_t buttonPressed  = 0; // Counter how long the WAKE-UP button is pressed (20Hz counter)
 volatile uint8_t timeStale     = 0; // Flag to force 1Hz update from RTC to get correct time
 volatile uint8_t systick       = 0; // 20Hz systick counter
 
