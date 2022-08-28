@@ -36,6 +36,11 @@ It requires CodeVisionAVR C compiler for compilation (this will be fixed in the 
 
 Even when the AVR Mega88 doesn't have much resources, still most of them are free and available for the future features.
 
+
+# Compilation
+
+Currently doesn't support GCC or any other free tools, these files need to be imported as a CodeVisionAVR project. I have a TODO to fix this.
+
 # Schematic
 
 The MCU can turn on/off the DC2DC section which produces the higher voltage needed for the VFD `IVL2-7_5` to operate,
