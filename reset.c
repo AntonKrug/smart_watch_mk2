@@ -7,7 +7,7 @@
 #include "vfd.h"
 
 
-// Set all the internal peripherals of the ATmega88PA with 8MHz clock into a good known state
+// Set all the internal peripherals of the ATmega88PA with an 8MHz clock into a good known state
 void systemPeripheralsSetup(void) {
   // Crystal Oscillator division factor: 1
   #pragma optsize-
@@ -128,7 +128,7 @@ void systemPeripheralsSetup(void) {
   ADCSRA=(0<<ADEN) | (0<<ADSC) | (0<<ADATE) | (0<<ADIF) | (0<<ADIE) | (0<<ADPS2) | (0<<ADPS1) | (0<<ADPS0);
 
   // SPI initialization to interact with MAX6920AWP and drive the VFD
-  // Had to set the PB2,PB3 and PB5 as outputs (SS, CLK, MOSI) 
+  // Had to set the PB2, PB3 and PB5 as outputs (SS, CLK, MOSI) 
   // SPI Type: Master
   // SPI Clock Rate: 62.500 kHz (A /128 division, getting the slowest possible SCK clock)
   // SPI Clock Phase: Cycle Start

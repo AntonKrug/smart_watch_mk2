@@ -60,7 +60,7 @@ interrupt [PC_INT2] void pin_change_isr2(void) {
 }
 
 
-// Something changed, button maybe pressed, or a clock state changed, counters need to start from scratch
+// Something changed, maybe a pressed button or a clock state changed. Counters need to start from scratch.
 void actionHappenedResetCounters(void) {
   buttonPressed = 0; 
   stayAwake     = SLEEP_TIMEOUT;
@@ -109,7 +109,7 @@ void setTimeStateMachine(uint8_t *hour, uint8_t *minute) {
           timeStale = 0;             
         }
       }    
-    break; // Not really needed here, but just for consistency sake      
+    break; // Not needed here, but just for consistency sake      
   }
     
   if ( (state > 0) && (stayAwake < (SLEEP_TIMEOUT - PRESS_TO_SET_TIME)) ) { 
@@ -137,7 +137,7 @@ void lowPowerAndWakingUp(uint8_t *hour, uint8_t *minute) {
     // Reached sleep timeout, going to power down state
     neopixelSetColor(NEOPIXEL_BLACK_COLOR);
     vfdOff();
-    powerdown(); // External IRQ caused by WAKE-UP button can resume the CPU
+    powerdown(); // External IRQ caused by the WAKE-UP button can resume the CPU
                     
     // After waking up, get the current time as a lot of time could have passed
     rtc_get_time(hour, minute, &second);            

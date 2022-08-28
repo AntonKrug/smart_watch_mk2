@@ -8,7 +8,7 @@ uint8_t      neopixelFadeCountDown = 0;  // Count down for how the Neopixel incr
 volatile bit neopixelUpdate        = 0;  // A 'update flag' set true at the systick frequency
     
 
-// Swap order of the lower 4 bits between each other (the higher 4-bits will be discarded)
+// Swap the order of the lower 4 bits between each other (the higher 4-bits will be discarded)
 uint8_t reverse4bits(uint8_t value) {
   return ((value & (1<<0)) << 3) |  // Move bit 0 to bit 3
          ((value & (1<<1)) << 1) |  // Move bit 1 to bit 2          
@@ -25,7 +25,7 @@ void neopixelFadeHandler(void) {
     if (neopixelFadeCountDown) {
       // At the first 16 ticks of the systick timer the color will fade from black to red
       // only if the neopixelFadeUp is setup. This way the fade will happen only on
-      // powerup but not any other button presses which reset the wakeup timer     
+      // powerup but not any other button presses which reset the stayAwake counter     
       
       neopixelFadeCountDown--;
       if (neopixelFadeCountDown) {
@@ -46,12 +46,12 @@ void neopixelFadeHandler(void) {
 
 
 // Set color of one Neopixel WS2812B LED.
-// Hardcoded to PB2 pin and timed exactly for a 8MHz clock.
+// Hardcoded to PB2 pin and timed exactly for an 8MHz clock.
 // 12-bit colors instead of 24-bit, (4-bit for each channel, each bit is transmitted twice). 
 // Order of colors: Blue Red Green (0xBRG)
-// MSB is first means that 0x001 will be a brighter green than 0x008
+// MSB is first in the stream, this means that 0x001 will be a brighter green than 0x008
 // CodeVisionAVR compiler doesn't support good mixing of C and ASM and
-// had to hardcode registers for its ABI. While rewritting this into GCC
+// had to hardcode registers for its ABI. While rewriting  this into GCC
 // and its "Extended assembly" would make it more portable and robust.
 void neopixelSetColor(uint16_t color) {
   #asm 
