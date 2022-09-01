@@ -66,10 +66,25 @@ void sendDataToVfd(uint16_t data) {
                
   // Start displaying the data on VFD 
   setVfdLoad(1);
-  delay_us(2);
+  delay_us(1);
   
   setVfdLoad(0);
   delay_us(10);
+}
+
+
+
+// Turn off all segments
+void clearVfd() {
+  // Send 16-bit of zeros to the MAX6920AWP
+  spi(0);
+  spi(0);
+               
+  // Commit the 'clear screen' 
+  setVfdLoad(1);
+  delay_us(1);
+  
+  setVfdLoad(0);
 }
 
 
@@ -103,17 +118,21 @@ void displayTime(uint8_t hour, uint8_t minute) {
   // Hours                                        
   uint8_t hourTens = hour / 10;
   sendDataToVfd((0 == hourTens) ? 0 : segments[hourTens] | 1 << VFD_CH_1); // display blank if it's leading 0    
+  clearVfd();                                                              // Clear the VFD after each character to remove ghosting
   sendDataToVfd(segments[hour % 10]                      | 1 << VFD_CH_2);             
+  clearVfd();   
                     
   // The ':' dots
   sendDataToVfd(0                                        | (systick >= (SYSTICK_MAX/2))  << VFD_CH_3);
+  clearVfd();   
          
   // Minutes
   sendDataToVfd(segments[(minute / 10) % 60]             | 1 << VFD_CH_4);    
+  clearVfd();   
   sendDataToVfd(segments[minute % 10]                    | 1 << VFD_CH_5);    
                       
   // Make sure that characters are displayed for equal time and have equal brightness,  
   // therefore leave the VFD in an off state                                                       
-  sendDataToVfd(0);   
+  clearVfd();   
 }
 
