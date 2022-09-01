@@ -8,9 +8,9 @@ Video demo (click on the thumbnail to play the video):
 [![DIY Watch YT demo](https://img.youtube.com/vi/cu711Lb3NEY/0.jpg)](https://youtu.be/cu711Lb3NEY)
 
 
-The name is ironic as the watch can only display time and nothing else, not even an alarm feature.
+The name is ironic as the watch can only display time and can't do anything else, doesn't even have an alarm feature.
 
-The idea was to take a modern CPU and combine it with obsolete display technology, in this case [Vacuum fluorescent display (VFD)](https://en.wikipedia.org/wiki/Vacuum_fluorescent_display). The `IVL2-7_5` display has a very nice glow, which is for me impossible to capture with a camera, but in person the neon-like glowing digits really stand out (similar to nixie tubes).
+The idea was to take a CPU and combine it with obsolete display technology, in this case [Vacuum fluorescent display (VFD)](https://en.wikipedia.org/wiki/Vacuum_fluorescent_display). The `IVL2-7_5` display has a very nice glow, which is for me impossible to capture with a camera, the neon-like glowing digits stand out in person.
 
 
 ![Display off](https://raw.githubusercontent.com/AntonKrug/smart_watch_mk2/assets/images/photo01.jpg)
@@ -18,7 +18,7 @@ The idea was to take a modern CPU and combine it with obsolete display technolog
 
 # Code
 
-Because the watch just displays the time and doesn't do anything else, therefore the code is fairly trivial and currently kept in a few files:
+The watch just displays the time and doesn't do anything else, therefore the code is fairly trivial and currently kept in a handful of files:
 
 - [main.c](https://github.com/AntonKrug/smart_watch_mk2/blob/main/main.c)
 - [main.h](https://github.com/AntonKrug/smart_watch_mk2/blob/main/main.h)
@@ -36,11 +36,11 @@ It requires CodeVisionAVR C compiler for compilation (this will be fixed in the 
 
 | AVR Mega88 PA resources  | Used by this project  | Utilization  |
 | ------------------------ | --------------------- | ------------ |
-| 1024 bytes of RAM | 60 bytes used of allocated 128 byte stack + 24 bytes global variables | 14%   |
+| 1024 bytes of RAM | 60 bytes used of the allocated 128 byte stack + 24 bytes global variables | 14%   |
 | 8 KB | 3118 bytes | 38% |
 | 512 bytes of EEPROM | 0 bytes | 0% |
 
-Even when the AVR Mega88 doesn't have much resources, still most of them are free and available for the future features.
+Even when the AVR Mega88 doesn't have many resources, still most of them are free and available for future features.
 
 
 # Compilation
@@ -64,10 +64,10 @@ The `MAX6920AWP` officially is not an SPI device but has DataIn `DIN` and DataCl
 # TODO
 
 - Add protection to sensitive corners of the glass VFD
-- Add a strap so it can be used as a wrist watch
+- Add a strap so it can be used as a wristwatch
 - Switch from CodeVisionAVR C compiler to GCC compiler
 - Replace the bundled AVR C HAL with C++ implementation
-- Add vibration motor to function as a alarm
+- Add vibration motor to function as an alarm
 - Try if the heating filament can be used for capacitive touch sensing
 - Switch from AVR mega MCU to a [ESP32-C3](https://www.espressif.com/en/products/socs/esp32-c3)
 - Then attempt to display Twitter messages. The 7-segment display is limited, but can 'render' alphanumerical characters.
