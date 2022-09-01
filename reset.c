@@ -129,13 +129,13 @@ void systemPeripheralsSetup(void) {
 
   // SPI initialization to interact with MAX6920AWP and drive the VFD
   // Had to set the PB2, PB3 and PB5 as outputs (SS, CLK, MOSI) 
-  // SPI Type: Master
-  // SPI Clock Rate: 62.500 kHz (A /128 division, getting the slowest possible SCK clock)
+  // SPI Clock Rate: 125.000 kHz ( /64 division, not absolutely the slowest SPI CLK)
   // SPI Clock Phase: Cycle Start
   // SPI Clock Polarity: Low
   // SPI Data Order: MSB First
-  SPCR=(0<<SPIE) | (1<<SPE) | (0<<DORD) | (1<<MSTR) | (0<<CPOL) | (0<<CPHA) | (1<<SPR1) | (1<<SPR0);
+  SPCR=(0<<SPIE) | (1<<SPE) | (0<<DORD) | (1<<MSTR) | (0<<CPOL) | (0<<CPHA) | (1<<SPR1) | (0<<SPR0);
   SPSR=(0<<SPI2X);
+
 
   // TWI initialization to interact with DS3231M RTC I2C peripheral
   // Mode: TWI Master
