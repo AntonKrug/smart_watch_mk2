@@ -49,10 +49,26 @@ void vfdOn() {
 }
 
 
-// Set high or low the PD7 pin -> MAX6920AWP.LOAD signal.
-// Allowing the serially  shifted data to be read into the driver stage
-void setVfdLoad(uint8_t value) {
-  PORTD = (PORTD & (~(1 << PORTD7))) | (value << PORTD7);
+// Turn off all segments
+// Almost duplication of the function below, but it's not implemented
+// in a generic way because the CodeVisionAVR toolchain will not
+// optimize things, even single instruction functions will not get
+// inlined and this section needs to perform quickly
+void clearVfd() {
+  // Send 16-bit of zeros to the MAX6920AWP
+  spi(0);
+  spi(0);
+               
+  // Commit the 'clear screen' 
+  // Set high the PD7 pin -> MAX6920AWP.LOAD signal.
+  // Allowing the serially  shifted data to be read into the driver stage
+  PORTD |= (1 << PORTD7);
+
+  // MAX6920AWP needs 55ns for the VFD LOAD pulse being high, 1 instruction @ 8MHz takes 125ns  
+  
+  // Set low the PD7 pin -> MAX6920AWP.LOAD signal.
+  // Returning back to original operation mode (shifting data)    
+  PORTD &= ~(1 << PORTD7);
 }
 
 
@@ -65,27 +81,24 @@ void sendDataToVfd(uint16_t data) {
   spi(data & 0xff);
                
   // Start displaying the data on VFD 
-  setVfdLoad(1);
-  delay_us(1);
+  // Set high the PD7 pin -> MAX6920AWP.LOAD signal.
+  // Allowing the serially  shifted data to be read into the driver stage
+  PORTD |= (1 << PORTD7);
   
-  setVfdLoad(0);
-  delay_us(10);
+  // MAX6920AWP needs 55ns for the VFD LOAD pulse being high, 1 instruction @ 8MHz takes 125ns
+  
+  // Set low the PD7 pin -> MAX6920AWP.LOAD signal.
+  // Returning back to original operation mode (shifting data)    
+  PORTD &= ~(1 << PORTD7);
+  
+  delay_us(10);  // Displaying a character give it a moment to glow
+                 
+  // Clear the VFD after each character to remove ghosting between characters
+  // and to make sure last character is disabled before going to super loop
+  // forcing each segment to glow equal amount of time and have even brightness
+  clearVfd();      
 }
 
-
-
-// Turn off all segments
-void clearVfd() {
-  // Send 16-bit of zeros to the MAX6920AWP
-  spi(0);
-  spi(0);
-               
-  // Commit the 'clear screen' 
-  setVfdLoad(1);
-  delay_us(1);
-  
-  setVfdLoad(0);
-}
 
 
 // Take `hour` and `minute` values and send the corresponding data
@@ -118,21 +131,13 @@ void displayTime(uint8_t hour, uint8_t minute) {
   // Hours                                        
   uint8_t hourTens = hour / 10;
   sendDataToVfd((0 == hourTens) ? 0 : segments[hourTens] | 1 << VFD_CH_1); // display blank if it's leading 0    
-  clearVfd();                                                              // Clear the VFD after each character to remove ghosting
   sendDataToVfd(segments[hour % 10]                      | 1 << VFD_CH_2);             
-  clearVfd();   
                     
   // The ':' dots
   sendDataToVfd(0                                        | (systick >= (SYSTICK_MAX/2))  << VFD_CH_3);
-  clearVfd();   
          
   // Minutes
   sendDataToVfd(segments[(minute / 10) % 60]             | 1 << VFD_CH_4);    
-  clearVfd();   
   sendDataToVfd(segments[minute % 10]                    | 1 << VFD_CH_5);    
-                      
-  // Make sure that characters are displayed for equal time and have equal brightness,  
-  // therefore leave the VFD in an off state                                                       
-  clearVfd();   
 }
 
