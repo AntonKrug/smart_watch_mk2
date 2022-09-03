@@ -37,7 +37,7 @@ It requires CodeVisionAVR C compiler for compilation (this will be fixed in the 
 | AVR Mega88 PA resources  | Used by this project  | Utilization  |
 | ------------------------ | --------------------- | ------------ |
 | 1024 bytes of RAM | 60 bytes used of the allocated 128 byte stack + 24 bytes global variables | 14%   |
-| 8 KB | 3118 bytes | 38% |
+| 8 KB | 3096 bytes | 38% |
 | 512 bytes of EEPROM | 0 bytes | 0% |
 
 Even when the AVR Mega88 doesn't have many resources, still most of them are free and available for future features.
