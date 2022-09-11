@@ -23,6 +23,10 @@ volatile uint8_t buttonPressed  = 0; // Counter how long the WAKE-UP button is p
 volatile bit     timeStale      = 0; // Flag to force 1Hz update from RTC to get correct time
 volatile uint8_t systick        = 0; // 20Hz systick counter
 
+uint8_t rtcHour                 = 8; // On power up start with 8:00 time
+uint8_t rtcMinute               = 0;
+
+
 
 // Timer1 output compare A interrupt service routine (a 20Hz systick)
 interrupt [TIM1_COMPA] void timer1_compa_isr(void) {
@@ -68,7 +72,7 @@ void actionHappenedResetCounters(void) {
 
 
 // Handle all 3 states the clock can be in
-void setTimeStateMachine(uint8_t *hour, uint8_t *minute) {
+void setTimeStateMachine() {
   // state 0 normal operation - display clock
   // state 1 set hours
   // state 2 set minutes
@@ -80,17 +84,25 @@ void setTimeStateMachine(uint8_t *hour, uint8_t *minute) {
     case 1:  // Set hours
       systick = 0; // Do not display the ':' dots when setting the hours  
       if (buttonPressed > PRESS_SHORT) {
-        *hour = (*hour + 1) % 24;
-        actionHappenedResetCounters(); 
-      }      
+        rtcHour = (rtcHour + 1) % 24;
+        actionHappenedResetCounters();
+      }                               
+      
+      // Display only hours         
+      vfdHour   = rtcHour;
+      vfdMinute = 255;            
     break;              
       
     case 2:  // Set minutes
-      systick = SYSTICK_MAX/2; // Constantly display the ':' dots when setting the minutes
+      systick = 0; // Do not display the ':' dots when setting the hours  
       if (buttonPressed > PRESS_SHORT) {
-        *minute = (*minute + 1) % 60;
+        rtcMinute = (rtcMinute + 1) % 60;
         actionHappenedResetCounters(); 
       }
+      
+      // Display only hours         
+      vfdHour   = 255;
+      vfdMinute = rtcMinute;     
     break;
       
     default: // state 0 -> normal clock operation        
@@ -105,10 +117,15 @@ void setTimeStateMachine(uint8_t *hour, uint8_t *minute) {
         if (timeStale) {  
           // Do 1Hz RTC update of the exact time
           uint8_t second; // Seconds are not displayed and not used anywhere 
-          rtc_get_time(hour, minute, &second);   
+          rtc_get_time(&rtcHour, &rtcMinute, &second);               
+                    
           timeStale = 0;             
         }
-      }    
+      }
+      
+      // Let VFD display exactly the same time as we get from RTC
+      vfdHour   = rtcHour;
+      vfdMinute = rtcMinute;          
     break; // Not needed here, but just for consistency sake      
   }
     
@@ -122,7 +139,7 @@ void setTimeStateMachine(uint8_t *hour, uint8_t *minute) {
   if (state > 2) {
     // Reached the end of state machine, done with setting the time, 
     // save the new time to the RTC chip and go to normal operation 
-    rtc_set_time(*hour, *minute, 0);
+    rtc_set_time(rtcHour, rtcMinute, 0);
     state = 0;  
     neopixelSetColor(NEOPIXEL_CLOCK_COLOR);    
     actionHappenedResetCounters();       
@@ -130,7 +147,7 @@ void setTimeStateMachine(uint8_t *hour, uint8_t *minute) {
 }
 
 
-void lowPowerAndWakingUp(uint8_t *hour, uint8_t *minute) {
+void lowPowerAndWakingUp() {
   uint8_t second; // Seconds are not displayed and not used anywhere 
   
   if (0 == stayAwake) {           
@@ -140,27 +157,24 @@ void lowPowerAndWakingUp(uint8_t *hour, uint8_t *minute) {
     powerdown(); // External IRQ caused by the WAKE-UP button can resume the CPU
                     
     // After waking up, get the current time as a lot of time could have passed
-    rtc_get_time(hour, minute, &second);            
+    rtc_get_time(&rtcHour, &rtcMinute, &second);            
     neopixelFadeCountDown = NEOPIXEL_START_FADE; // Start Neopixel's fade from black to red 
     vfdOn();                            
   }
 }
 
 
-void main(void) {
-  uint8_t hour   = 8;                          // On power up start with 8:00 time
-  uint8_t minute = 0;
-            
+void main(void) {            
   systemPeripheralsSetup();                    // Set all peripherals into a known state      
-  rtc_set_time(hour, minute, 0);               // Set RTC clock to a known time  
+  rtc_set_time(rtcHour, rtcMinute, 0);         // Set RTC clock to a known time  
   neopixelFadeCountDown = NEOPIXEL_START_FADE; // Start Neopixel's fade from black to red
 
   while (1) {                                  // The super loop -> whole life of this watch                   
                            
-    setTimeStateMachine(&hour, &minute);       // Handles 'Set Time' functionality                               
-    displayTime(hour, minute);                 // The VFD needs constant refresh 
+    setTimeStateMachine();                     // Handles 'Set Time' functionality                               
+    displayTime();                             // The VFD needs constant refresh 
     neopixelFadeHandler();                     // Updates the Neopixel color when the fade is enabled       
-    lowPowerAndWakingUp(&hour, &minute);       // Goes into low-power mode after a timeout 
+    lowPowerAndWakingUp();                     // Goes into low-power mode after a timeout 
   } 
   
 }
