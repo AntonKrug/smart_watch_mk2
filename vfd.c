@@ -128,16 +128,30 @@ void displayTime(uint8_t hour, uint8_t minute) {
     1 << VFD_A | 1 << VFD_F | 1 << VFD_B | 1 << VFD_G | 1 << VFD_C,                            // 9 character
   };                                     
   
-  // Hours                                        
-  uint8_t hourTens = hour / 10;
-  sendDataToVfd((0 == hourTens) ? 0 : segments[hourTens] | 1 << VFD_CH_1); // display blank if it's leading 0    
-  sendDataToVfd(segments[hour % 10]                      | 1 << VFD_CH_2);             
+  // Hours
+  if (255 == hour) {
+    // Do not display hours
+    sendDataToVfd(0);
+    sendDataToVfd(0);
+  } else {     
+    // Regular display of hours
+    uint8_t hourTens = hour / 10;
+    sendDataToVfd((0 == hourTens) ? 0 : segments[hourTens] | 1 << VFD_CH_1); // display blank if it's leading 0    
+    sendDataToVfd(segments[hour % 10]                      | 1 << VFD_CH_2);             
+  }                                        
                     
   // The ':' dots
-  sendDataToVfd(0                                        | (systick >= (SYSTICK_MAX/2))  << VFD_CH_3);
+  sendDataToVfd(0                                          | (systick >= (SYSTICK_MAX/2))  << VFD_CH_3);
          
   // Minutes
-  sendDataToVfd(segments[(minute / 10) % 60]             | 1 << VFD_CH_4);    
-  sendDataToVfd(segments[minute % 10]                    | 1 << VFD_CH_5);    
+  if (255 == minute) {
+    // Do not display minutes
+    sendDataToVfd(0);
+    sendDataToVfd(0);
+  } else {
+    // Regular display of minutes
+    sendDataToVfd(segments[(minute / 10) % 60]             | 1 << VFD_CH_4);    
+    sendDataToVfd(segments[minute % 10]                    | 1 << VFD_CH_5);    
+  }
 }
 
