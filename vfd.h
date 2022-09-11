@@ -3,6 +3,9 @@
 
 #include <stdint.h>     // `uint8_t` and `uint16_t` 
 
+extern uint8_t vfdHour;
+extern uint8_t vfdMinute;
+
 
 #define SLEEP_TIMEOUT 240  // 240 * 0.05s = 12s timeout before turning off the VFD
 
@@ -41,7 +44,7 @@ extern volatile uint8_t stayAwake;              // How long before going to slee
 void vfdOn(void);                               // Turn on both DC2DC and filament heater
 void vfdOff(void);                              // Turn off both DC2DC and filament heater
 void sendDataToVfd(uint16_t data);              // Transfer 1 character to VFD
-void displayTime(uint8_t hour, uint8_t minute); // Display HH:MM on the VFD
+void displayTime(); // Display HH:MM on the VFD
 
 
 #endif

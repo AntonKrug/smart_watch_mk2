@@ -9,6 +9,10 @@
 
 volatile uint8_t stayAwake = SLEEP_TIMEOUT; // How long before going to sleep (20Hz counter counting to 0)
 
+uint8_t vfdHour   = 255; // Init with display off
+uint8_t vfdMinute = 255;
+
+
 
 // Turn off VFD's high-voltage DC2DC boost converter (PD1)
 void dc2dcOff(void) {
@@ -103,7 +107,7 @@ void sendDataToVfd(uint16_t data) {
 
 // Take `hour` and `minute` values and send the corresponding data
 // to VFD which will display it
-void displayTime(uint8_t hour, uint8_t minute) {
+void displayTime() {
 
   //  --A--
   // |     |
@@ -129,29 +133,29 @@ void displayTime(uint8_t hour, uint8_t minute) {
   };                                     
   
   // Hours
-  if (255 == hour) {
+  if (255 == vfdHour) {
     // Do not display hours
     sendDataToVfd(0);
     sendDataToVfd(0);
   } else {     
     // Regular display of hours
-    uint8_t hourTens = hour / 10;
+    uint8_t hourTens = vfdHour / 10;
     sendDataToVfd((0 == hourTens) ? 0 : segments[hourTens] | 1 << VFD_CH_1); // display blank if it's leading 0    
-    sendDataToVfd(segments[hour % 10]                      | 1 << VFD_CH_2);             
+    sendDataToVfd(segments[vfdHour % 10]                   | 1 << VFD_CH_2);             
   }                                        
                     
   // The ':' dots
   sendDataToVfd(0                                          | (systick >= (SYSTICK_MAX/2))  << VFD_CH_3);
          
   // Minutes
-  if (255 == minute) {
+  if (255 == vfdMinute) {
     // Do not display minutes
     sendDataToVfd(0);
     sendDataToVfd(0);
   } else {
     // Regular display of minutes
-    sendDataToVfd(segments[(minute / 10) % 60]             | 1 << VFD_CH_4);    
-    sendDataToVfd(segments[minute % 10]                    | 1 << VFD_CH_5);    
+    sendDataToVfd(segments[(vfdMinute / 10) % 60]          | 1 << VFD_CH_4);    
+    sendDataToVfd(segments[vfdMinute % 10]                 | 1 << VFD_CH_5);    
   }
 }
 
