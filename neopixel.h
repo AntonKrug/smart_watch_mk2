@@ -4,8 +4,8 @@
 #include <stdint.h> 
                                              
 #define NEOPIXEL_CLOCK_COLOR       0x0C0       // Red
-#define NEOPIXEL_SET_HOURS_COLOR   0x002       // Green
-#define NEOPIXEL_SET_MINUTES_COLOR 0x200       // Blue
+#define NEOPIXEL_SET_HOURS_COLOR   0x00C       // Green
+#define NEOPIXEL_SET_MINUTES_COLOR 0xC00       // Blue
 #define NEOPIXEL_BLACK_COLOR       0x000       // Turned off (black color is 100% off)
 
 #define NEOPIXEL_START_FADE        4           // do a 4-step fade from 4 to 1 (0 is a special state where this fade is disabled)
